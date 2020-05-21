@@ -6,6 +6,19 @@ import (
 	"github.com/gdamore/tcell"
 )
 
+type WindowEdge int16
+
+// Available mouse actions.
+const (
+	WindowEdgeNone WindowEdge = iota
+	WindowEdgeTop
+	WindowEdgeRight
+	WindowEdgeBottom
+	WindowEdgeLeft
+	WindowEdgeBottomRight
+	WindowEdgeBottomLeft
+)
+
 // flexItem holds layout options for one item.
 type Window struct {
 	*Box
@@ -71,10 +84,11 @@ type WindowManager struct {
 
 	// If set to true, the WindowManager will use the entire screen as its available space
 	// instead its box dimensions.
-	fullScreen             bool
-	mouseWindow            *Window
-	lastMouseX, lastMouseY int
-	draggedWindow          *Window
+	fullScreen               bool
+	mouseWindow              *Window
+	dragOffsetX, dragOffsetY int
+	draggedWindow            *Window
+	draggedEdge              WindowEdge
 
 	sync.Mutex
 }
@@ -232,8 +246,21 @@ func (wm *WindowManager) MouseHandler() func(action MouseAction, event *tcell.Ev
 			case MouseMove:
 				wm.draggedWindow.SetTitle("Dragging")
 				x, y := event.Position()
-				_, _, ww, wh := wm.draggedWindow.GetRect()
-				wm.draggedWindow.Box.SetRect(x-wm.lastMouseX, y-wm.lastMouseY, ww, wh)
+				wx, wy, ww, wh := wm.draggedWindow.GetRect()
+				switch wm.draggedEdge {
+				case WindowEdgeTop:
+					wm.draggedWindow.SetRect(x-wm.dragOffsetX, y-wm.dragOffsetY, ww, wh)
+				case WindowEdgeRight:
+					wm.draggedWindow.SetRect(wx, wy, x-wx+1, wh)
+				case WindowEdgeBottom:
+					wm.draggedWindow.SetRect(wx, wy, ww, y-wy+1)
+				case WindowEdgeLeft:
+					wm.draggedWindow.SetRect(x, wy, ww+wx-x, wh)
+				case WindowEdgeBottomRight:
+					wm.draggedWindow.SetRect(wx, wy, x-wx+1, y-wy+1)
+				case WindowEdgeBottomLeft:
+					wm.draggedWindow.SetRect(x, wy, ww+wx-x, y-wy+1)
+				}
 				return true, nil
 			}
 		}
@@ -251,10 +278,28 @@ func (wm *WindowManager) MouseHandler() func(action MouseAction, event *tcell.Ev
 				}
 				wx, wy, ww, wh := window.GetRect()
 				x, y := event.Position()
-				if x == wx || x == wx+ww-1 || y == wy || y == wy+wh-1 {
+				wm.draggedEdge = WindowEdgeNone
+				switch {
+				case y == wy+wh-1:
+					switch {
+					case x == wx:
+						wm.draggedEdge = WindowEdgeBottomLeft
+					case x == wx+ww-1:
+						wm.draggedEdge = WindowEdgeBottomRight
+					default:
+						wm.draggedEdge = WindowEdgeBottom
+					}
+				case x == wx:
+					wm.draggedEdge = WindowEdgeLeft
+				case x == wx+ww-1:
+					wm.draggedEdge = WindowEdgeRight
+				case y == wy:
+					wm.draggedEdge = WindowEdgeTop
+				}
+				if wm.draggedEdge != WindowEdgeNone {
 					wm.draggedWindow = window
-					wm.lastMouseX = x - wx
-					wm.lastMouseY = y - wy
+					wm.dragOffsetX = x - wx
+					wm.dragOffsetY = y - wy
 					window.SetTitle("Drag")
 					return true, nil
 				}
