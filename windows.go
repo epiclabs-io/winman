@@ -19,6 +19,9 @@ const (
 	WindowEdgeBottomLeft
 )
 
+const minWindowWidth = 3
+const minWindowHeight = 3
+
 // flexItem holds layout options for one item.
 type Window struct {
 	*Box
@@ -37,6 +40,7 @@ func (w *Window) Draw(screen tcell.Screen) {
 	if w.root != nil {
 		x, y, width, height := w.GetInnerRect()
 		w.root.SetRect(x, y, width, height)
+		screen = NewClipRegion(screen, x, y, width, height)
 		w.root.Draw(screen)
 	}
 }
@@ -51,11 +55,6 @@ func (w *Window) HasFocus() bool {
 	return w.root.GetFocusable().HasFocus()
 }
 
-/* func (w *Window) SetRect(x, y, width, height int) {
-	mx, my, _, _ := w.manager.GetInnerRect()
-	w.Box.SetRect(mx+x, my+y, width, height)
-	//w.root.SetRect(w.GetInnerRect())
-} */
 func (w *Window) Center(horizontal, vertical bool) *Window {
 	_, _, mw, mh := w.manager.GetInnerRect()
 	_, _, wh, ww := w.Box.GetRect()
@@ -193,6 +192,29 @@ func (wm *WindowManager) Draw(screen tcell.Screen) {
 	}
 
 	for _, window := range wm.windows {
+		mx, my, mw, mh := wm.GetRect()
+		x, y, w, h := window.GetRect()
+		if x < mx {
+			x = mx
+		}
+		if y < my {
+			y = my
+		}
+
+		if w < minWindowWidth {
+			w = minWindowWidth
+		}
+		if h < minWindowHeight {
+			h = minWindowHeight
+		}
+
+		if x+w > mx+mw {
+			x = mx + mw - w
+		}
+		if y+h > my+mh {
+			y = my + mh - h
+		}
+		window.SetRect(x, y, w, h)
 		window.Draw(screen)
 	}
 }

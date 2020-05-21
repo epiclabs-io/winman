@@ -8,6 +8,7 @@ import (
 )
 
 func main() {
+
 	app := cview.NewApplication()
 	wm := cview.NewWindowManager()
 	createForm := func(i int) {
@@ -26,13 +27,7 @@ func main() {
 		window := wm.GetWindow(form)
 		window.SetBorder(true).SetTitle(fmt.Sprintf("Form%d", i)).SetTitleAlign(cview.AlignCenter)
 		window.SetRect(2+i*2, 2+i, 50, 30)
-		//window.Center(true, true)
-		/* 		window.SetMouseCapture(func(action cview.MouseAction, event *tcell.EventMouse) (cview.MouseAction, *tcell.EventMouse) {
-			x, y := event.Position()
-			window.SetTitle(fmt.Sprintf("Form%d - %d, %d", i, x, y))
-			app.Draw()
-			return action, event
-		}) */
+
 	}
 
 	for i := 0; i < 10; i++ {
