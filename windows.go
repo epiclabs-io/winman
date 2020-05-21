@@ -85,12 +85,12 @@ func (w *Window) Draw(screen tcell.Screen) {
 	}
 }
 
-func (w *Window) Open() {
-	w.manager.AddWindow(w)
+func (w *Window) Show() {
+	w.manager.Show(w)
 }
 
-func (w *Window) Close() {
-	w.manager.RemoveWindow(w)
+func (w *Window) Hide() {
+	w.manager.Hide(w)
 }
 
 func (w *Window) Maximize() {
@@ -174,7 +174,7 @@ type WindowManager struct {
 	dragOffsetX, dragOffsetY int
 	draggedWindow            *Window
 	draggedEdge              WindowEdge
-
+	modalWindow              *Window
 	sync.Mutex
 }
 
@@ -218,7 +218,7 @@ func (wm *WindowManager) NewWindow(root Primitive, focus bool) *Window {
 	return window
 }
 
-func (wm *WindowManager) AddWindow(window *Window) *WindowManager {
+func (wm *WindowManager) Show(window *Window) *WindowManager {
 	wm.Lock()
 	defer wm.Unlock()
 	for _, wnd := range wm.windows {
@@ -230,10 +230,20 @@ func (wm *WindowManager) AddWindow(window *Window) *WindowManager {
 	return wm
 }
 
-func (wm *WindowManager) RemoveWindow(window *Window) *WindowManager {
+func (wm *WindowManager) ShowModal(window *Window) *WindowManager {
+	wm.Show(window)
 	wm.Lock()
 	defer wm.Unlock()
+	wm.modalWindow = window
+	return wm
+}
 
+func (wm *WindowManager) Hide(window *Window) *WindowManager {
+	wm.Lock()
+	defer wm.Unlock()
+	if window == wm.modalWindow {
+		wm.modalWindow = nil
+	}
 	for i, wnd := range wm.windows {
 		if wnd == window {
 			wm.windows = append(wm.windows[:i], wm.windows[i+1:]...)
@@ -244,12 +254,38 @@ func (wm *WindowManager) RemoveWindow(window *Window) *WindowManager {
 }
 
 func (wm *WindowManager) FindPrimitive(p Primitive) *Window {
+	wm.Lock()
+	defer wm.Unlock()
 	for _, window := range wm.windows {
 		if window.root == p {
 			return window
 		}
 	}
 	return nil
+}
+
+func (wm *WindowManager) BringToFront(window *Window) *WindowManager {
+	wm.Lock()
+	defer wm.Unlock()
+	for i, wnd := range wm.windows {
+		if wnd == window {
+			wm.windows = append(append(wm.windows[:i], wm.windows[i+1:]...), window)
+			break
+		}
+	}
+	return wm
+}
+
+func (wm *WindowManager) SendToBack(window *Window) *WindowManager {
+	wm.Lock()
+	defer wm.Unlock()
+	for i, wnd := range wm.windows {
+		if wnd == window {
+			wm.windows = append([]*Window{window}, append(wm.windows[:i], wm.windows[i+1:]...)...)
+			break
+		}
+	}
+	return wm
 }
 
 // Draw draws this primitive onto the screen.
@@ -330,6 +366,8 @@ func (wm *WindowManager) Focus(delegate func(p Primitive)) {
 
 func (wm *WindowManager) SetRect(x, y, width, height int) {
 	wm.Box.SetRect(x, y, width, height)
+	wm.Lock()
+	defer wm.Unlock()
 	for _, window := range wm.windows {
 		_, _, windowWidth, windowHeight := window.GetRect()
 		window.SetRect(x+window.x, y+window.y, windowWidth, windowHeight)
@@ -356,14 +394,13 @@ func (wm *WindowManager) MouseHandler() func(action MouseAction, event *tcell.Ev
 		if !wm.InRect(event.Position()) {
 			return false, nil
 		}
+		wm.Lock()
 
 		if wm.draggedWindow != nil {
 			switch action {
 			case MouseLeftUp:
-				//wm.draggedWindow.SetTitle("Stop")
 				wm.draggedWindow = nil
 			case MouseMove:
-				//wm.draggedWindow.SetTitle("Dragging")
 				x, y := event.Position()
 				wx, wy, ww, wh := wm.draggedWindow.GetRect()
 				if wm.draggedEdge == WindowEdgeTop && wm.draggedWindow.Draggable {
@@ -384,13 +421,21 @@ func (wm *WindowManager) MouseHandler() func(action MouseAction, event *tcell.Ev
 						}
 					}
 				}
+				wm.Unlock()
 				return true, nil
 			}
 		}
 
+		var windows []*Window
+		if wm.modalWindow != nil {
+			windows = []*Window{wm.modalWindow}
+		} else {
+			windows = wm.windows
+		}
+
 		// Pass mouse events along to the first child item that takes it.
-		for i := len(wm.windows) - 1; i >= 0; i-- {
-			window := wm.windows[i]
+		for i := len(windows) - 1; i >= 0; i-- {
+			window := windows[i]
 			if !window.InRect(event.Position()) {
 				continue
 			}
@@ -423,12 +468,14 @@ func (wm *WindowManager) MouseHandler() func(action MouseAction, event *tcell.Ev
 					wm.draggedWindow = window
 					wm.dragOffsetX = x - wx
 					wm.dragOffsetY = y - wy
+					wm.Unlock()
 					return true, nil
 				}
 			}
-
+			wm.Unlock()
 			return window.MouseHandler()(action, event, setFocus)
 		}
+		wm.Unlock()
 
 		return
 	})
