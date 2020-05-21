@@ -68,7 +68,7 @@ func (cr *ClipRegion) SetContent(x int, y int, mainc rune, combc []rune, style t
 // dimensions of the screen, the cursor will be hidden.
 func (cr *ClipRegion) ShowCursor(x int, y int) {
 	if cr.InRect(x, y) {
-		cr.Screen.ShowCursor(cr.x+x, cr.y+y)
+		cr.Screen.ShowCursor(x, y)
 	}
 }
 

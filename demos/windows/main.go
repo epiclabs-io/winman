@@ -23,11 +23,34 @@ func main() {
 				app.Stop()
 			})
 
-		wm.AddItem(form, true)
-		window := wm.GetWindow(form)
-		window.SetBorder(true).SetTitle(fmt.Sprintf("Form%d", i)).SetTitleAlign(cview.AlignCenter)
+		window := wm.NewWindow(form, true)
+		window.Draggable = i%2 == 0
+		window.Resizable = i%3 == 0
+		title := fmt.Sprintf("Window%d - Draggable: %t, Resizable: %t", i, window.Draggable, window.Resizable)
+		window.SetBorder(true).SetTitle(title).SetTitleAlign(cview.AlignCenter)
 		window.SetRect(2+i*2, 2+i, 50, 30)
+		window.AddButton(&cview.WindowButton{
+			Symbol:       'X',
+			Alignment:    cview.AlignLeft,
+			ClickHandler: func() { window.Close() },
+		})
+		var maxMinButton *cview.WindowButton
+		maxMinButton = &cview.WindowButton{
+			Symbol:    '▴',
+			Alignment: cview.AlignRight,
+			ClickHandler: func() {
+				if window.IsMaximized() {
+					window.Restore()
+					maxMinButton.Symbol = '▴'
+				} else {
+					window.Maximize()
+					maxMinButton.Symbol = '▾'
+				}
+			},
+		}
+		window.AddButton(maxMinButton)
 
+		window.Open()
 	}
 
 	for i := 0; i < 10; i++ {

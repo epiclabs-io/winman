@@ -1,6 +1,7 @@
 package cview
 
 import (
+	"fmt"
 	"sync"
 
 	"github.com/gdamore/tcell"
@@ -19,16 +20,37 @@ const (
 	WindowEdgeBottomLeft
 )
 
+type WindowButtonSide int16
+
+const (
+	WindowButtonLeft = iota
+	WindowButtonRight
+)
+
 const minWindowWidth = 3
 const minWindowHeight = 3
+
+type WindowButton struct {
+	Symbol       rune
+	offsetX      int
+	offsetY      int
+	Alignment    int
+	ClickHandler func()
+}
 
 // flexItem holds layout options for one item.
 type Window struct {
 	*Box
-	root    Primitive // The item to be positioned. May be nil for an empty item.
-	ZIndex  int
-	focus   bool // Whether or not this item attracts the layout's focus.
-	manager *WindowManager
+	root          Primitive // The item to be positioned. May be nil for an empty item.
+	manager       *WindowManager
+	buttons       []*WindowButton
+	restoreX      int
+	restoreY      int
+	restoreWidth  int
+	restoreHeight int
+	maximized     bool
+	Draggable     bool
+	Resizable     bool
 }
 
 func (w *Window) SetRoot(root Primitive) {
@@ -36,18 +58,65 @@ func (w *Window) SetRoot(root Primitive) {
 }
 
 func (w *Window) Draw(screen tcell.Screen) {
+	if w.Box.HasFocus() && !w.HasFocus() {
+		w.Box.Blur()
+	}
 	w.Box.Draw(screen)
+
 	if w.root != nil {
 		x, y, width, height := w.GetInnerRect()
 		w.root.SetRect(x, y, width, height)
-		screen = NewClipRegion(screen, x, y, width, height)
-		w.root.Draw(screen)
+		w.root.Draw(NewClipRegion(screen, x, y, width, height))
 	}
+
+	x, y, width, height := w.GetRect()
+	screen = NewClipRegion(screen, x, y, width, height)
+	for _, button := range w.buttons {
+		buttonX, buttonY := button.offsetX+x, button.offsetY+y
+		if button.offsetX < 0 {
+			buttonX += width
+		}
+		if button.offsetY < 0 {
+			buttonY += height
+		}
+
+		//screen.SetContent(buttonX, buttonY, button.Symbol, nil, tcell.StyleDefault.Foreground(tcell.ColorYellow))
+		Print(screen, Escape(fmt.Sprintf("[%c]", button.Symbol)), buttonX-1, buttonY, 9, 0, tcell.ColorYellow)
+	}
+}
+
+func (w *Window) Open() {
+	w.manager.AddWindow(w)
+}
+
+func (w *Window) Close() {
+	w.manager.RemoveWindow(w)
+}
+
+func (w *Window) Maximize() {
+	w.restoreX, w.restoreY, w.restoreHeight, w.restoreWidth = w.GetRect()
+	w.SetRect(w.manager.GetInnerRect())
+	w.maximized = true
+}
+
+func (w *Window) Restore() {
+	w.SetRect(w.restoreX, w.restoreY, w.restoreHeight, w.restoreWidth)
+	w.maximized = false
 }
 
 // Focus is called when this primitive receives focus.
 func (w *Window) Focus(delegate func(p Primitive)) {
 	delegate(w.root)
+	w.Box.Focus(nil)
+}
+
+func (w *Window) Blur() {
+	w.root.Blur()
+	w.Box.Blur()
+}
+
+func (w *Window) IsMaximized() bool {
+	return w.maximized
 }
 
 // HasFocus returns whether or not this primitive has focus.
@@ -55,24 +124,41 @@ func (w *Window) HasFocus() bool {
 	return w.root.GetFocusable().HasFocus()
 }
 
-func (w *Window) Center(horizontal, vertical bool) *Window {
-	_, _, mw, mh := w.manager.GetInnerRect()
-	_, _, wh, ww := w.Box.GetRect()
-	var wx, wy int
-	if horizontal {
-		wx = (mw - ww) / 2
-	}
-	if vertical {
-		wy = (mh - wh) / 2
-	}
-	w.SetRect(wx, wy, ww, wh)
-	return w
-}
-
 func (w *Window) MouseHandler() func(action MouseAction, event *tcell.EventMouse, setFocus func(p Primitive)) (consumed bool, capture Primitive) {
 	return w.WrapMouseHandler(func(action MouseAction, event *tcell.EventMouse, setFocus func(p Primitive)) (consumed bool, capture Primitive) {
+		if action == MouseLeftClick {
+			x, y := event.Position()
+			wx, wy, width, _ := w.GetRect()
+			if y == wy {
+				for _, button := range w.buttons {
+					if button.offsetX >= 0 && x == wx+button.offsetX || button.offsetX < 0 && x == wx+width+button.offsetX {
+						if button.ClickHandler != nil {
+							button.ClickHandler()
+						}
+						return true, nil
+					}
+				}
+			}
+		}
 		return w.root.MouseHandler()(action, event, setFocus)
 	})
+}
+
+func (w *Window) AddButton(button *WindowButton) *Window {
+	w.buttons = append(w.buttons, button)
+
+	offsetLeft, offsetRight := 2, -3
+	for _, button := range w.buttons {
+		if button.Alignment == AlignRight {
+			button.offsetX = offsetRight
+			offsetRight -= 3
+		} else {
+			button.offsetX = offsetLeft
+			offsetLeft += 3
+		}
+	}
+
+	return w
 }
 
 type WindowManager struct {
@@ -120,44 +206,44 @@ func (wm *WindowManager) SetFullScreen(fullScreen bool) *WindowManager {
 	return wm
 }
 
-// AddItem adds a new item to the container. The "fixedSize" argument is a width
-// or height that may not be changed by the layout algorithm. A value of 0 means
-// that its size is flexible and may be changed. The "proportion" argument
-// defines the relative size of the item compared to other flexible-size items.
-// For example, items with a proportion of 2 will be twice as large as items
-// with a proportion of 1. The proportion must be at least 1 if fixedSize == 0
-// (ignored otherwise).
-//
-// If "focus" is set to true, the item will receive focus when the Flex
-// primitive receives focus. If multiple items have the "focus" flag set to
-// true, the first one will receive focus.
-//
-// You can provide a nil value for the primitive. This will still consume screen
-// space but nothing will be drawn.
-func (wm *WindowManager) AddItem(item Primitive, focus bool) *WindowManager {
+// NewWindow creates a new window in this window manager
+func (wm *WindowManager) NewWindow(root Primitive, focus bool) *Window {
+	window := &Window{
+		root:    root,
+		manager: wm,
+		Box:     NewBox().SetBackgroundColor(tcell.ColorDefault),
+	}
+	window.restoreX, window.restoreY, window.restoreHeight, window.restoreWidth = window.GetRect()
+	window.SetBorder(true)
+	return window
+}
+
+func (wm *WindowManager) AddWindow(window *Window) *WindowManager {
 	wm.Lock()
 	defer wm.Unlock()
-	window := &Window{root: item, focus: focus, manager: wm, Box: NewBox().SetBackgroundColor(tcell.ColorDefault)}
-	window.SetBorder(true)
+	for _, wnd := range wm.windows {
+		if wnd == window {
+			return wm
+		}
+	}
 	wm.windows = append(wm.windows, window)
 	return wm
 }
 
-// RemoveItem removes all items for the given primitive from the container,
-// keeping the order of the remaining items intact.
-func (wm *WindowManager) RemoveItem(p Primitive) *WindowManager {
+func (wm *WindowManager) RemoveWindow(window *Window) *WindowManager {
 	wm.Lock()
 	defer wm.Unlock()
 
-	for index := len(wm.windows) - 1; index >= 0; index-- {
-		if wm.windows[index].root == p {
-			wm.windows = append(wm.windows[:index], wm.windows[index+1:]...)
+	for i, wnd := range wm.windows {
+		if wnd == window {
+			wm.windows = append(wm.windows[:i], wm.windows[i+1:]...)
+			break
 		}
 	}
 	return wm
 }
 
-func (wm *WindowManager) GetWindow(p Primitive) *Window {
+func (wm *WindowManager) FindPrimitive(p Primitive) *Window {
 	for _, window := range wm.windows {
 		if window.root == p {
 			return window
@@ -192,7 +278,7 @@ func (wm *WindowManager) Draw(screen tcell.Screen) {
 	}
 
 	for _, window := range wm.windows {
-		mx, my, mw, mh := wm.GetRect()
+		mx, my, mw, mh := wm.GetInnerRect()
 		x, y, w, h := window.GetRect()
 		if x < mx {
 			x = mx
@@ -208,12 +294,23 @@ func (wm *WindowManager) Draw(screen tcell.Screen) {
 			h = minWindowHeight
 		}
 
+		if w > mw || window.maximized {
+			w = mw
+			x = mx
+		}
+		if h > mh || window.maximized {
+			h = mh
+			y = my
+		}
+
 		if x+w > mx+mw {
 			x = mx + mw - w
 		}
+
 		if y+h > my+mh {
 			y = my + mh - h
 		}
+
 		window.SetRect(x, y, w, h)
 		window.Draw(screen)
 	}
@@ -263,25 +360,29 @@ func (wm *WindowManager) MouseHandler() func(action MouseAction, event *tcell.Ev
 		if wm.draggedWindow != nil {
 			switch action {
 			case MouseLeftUp:
-				wm.draggedWindow.SetTitle("Stop")
+				//wm.draggedWindow.SetTitle("Stop")
 				wm.draggedWindow = nil
 			case MouseMove:
-				wm.draggedWindow.SetTitle("Dragging")
+				//wm.draggedWindow.SetTitle("Dragging")
 				x, y := event.Position()
 				wx, wy, ww, wh := wm.draggedWindow.GetRect()
-				switch wm.draggedEdge {
-				case WindowEdgeTop:
+				if wm.draggedEdge == WindowEdgeTop && wm.draggedWindow.Draggable {
 					wm.draggedWindow.SetRect(x-wm.dragOffsetX, y-wm.dragOffsetY, ww, wh)
-				case WindowEdgeRight:
-					wm.draggedWindow.SetRect(wx, wy, x-wx+1, wh)
-				case WindowEdgeBottom:
-					wm.draggedWindow.SetRect(wx, wy, ww, y-wy+1)
-				case WindowEdgeLeft:
-					wm.draggedWindow.SetRect(x, wy, ww+wx-x, wh)
-				case WindowEdgeBottomRight:
-					wm.draggedWindow.SetRect(wx, wy, x-wx+1, y-wy+1)
-				case WindowEdgeBottomLeft:
-					wm.draggedWindow.SetRect(x, wy, ww+wx-x, y-wy+1)
+				} else {
+					if wm.draggedWindow.Resizable {
+						switch wm.draggedEdge {
+						case WindowEdgeRight:
+							wm.draggedWindow.SetRect(wx, wy, x-wx+1, wh)
+						case WindowEdgeBottom:
+							wm.draggedWindow.SetRect(wx, wy, ww, y-wy+1)
+						case WindowEdgeLeft:
+							wm.draggedWindow.SetRect(x, wy, ww+wx-x, wh)
+						case WindowEdgeBottomRight:
+							wm.draggedWindow.SetRect(wx, wy, x-wx+1, y-wy+1)
+						case WindowEdgeBottomLeft:
+							wm.draggedWindow.SetRect(x, wy, ww+wx-x, y-wy+1)
+						}
+					}
 				}
 				return true, nil
 			}
@@ -322,7 +423,6 @@ func (wm *WindowManager) MouseHandler() func(action MouseAction, event *tcell.Ev
 					wm.draggedWindow = window
 					wm.dragOffsetX = x - wx
 					wm.dragOffsetY = y - wy
-					window.SetTitle("Drag")
 					return true, nil
 				}
 			}
