@@ -11,12 +11,25 @@ func main() {
 
 	app := cview.NewApplication()
 	wm := cview.NewWindowManager()
-	createForm := func(i int) {
+
+	modalWindowMessage := cview.NewTextView().SetText("\nChanges have been saved").SetTextAlign(cview.AlignCenter)
+	modalWindowContent := cview.NewFlex().
+		SetDirection(cview.FlexRow).
+		AddItem(modalWindowMessage, 0, 1, false)
+	modalWindow := wm.NewWindow(modalWindowContent, true)
+	modalWindowButton := cview.NewButton("OK").SetSelectedFunc(func() { modalWindow.Hide() })
+	modalWindowContent.AddItem(modalWindowButton, 1, 0, true)
+	modalWindow.SetTitle("Confirmation")
+	modalWindow.SetRect(4, 2, 30, 6)
+	modalWindow.Draggable = true
+
+	var createForm func(int) *cview.Window
+	createForm = func(i int) *cview.Window {
 
 		form := cview.NewForm()
 		window := wm.NewWindow(form, true)
-		window.Draggable = i%2 == 0
-		window.Resizable = i%3 == 0
+		window.Draggable = true
+		window.Resizable = true
 
 		form.AddDropDown("Title", []string{"Mr.", "Ms.", "Mrs.", "Dr.", "Prof."}, 0, nil).
 			AddInputField("First name", "", 20, nil, nil).
@@ -28,9 +41,19 @@ func main() {
 			AddCheckBox("", "Resizable", window.Draggable, func(checked bool) {
 				window.Resizable = checked
 			}).
-			AddButton("Save", nil).
+			AddButton("Save", func() {
+				modalWindow.ShowModal()
+				modalWindow.Center()
+				app.SetFocus(modalWindow)
+			}).
 			AddButton("Quit", func() {
 				app.Stop()
+			}).
+			AddButton("New Window", func() {
+				app.SetFocus(createForm(i + 1).Show())
+			}).
+			AddButton("New Modal", func() {
+				app.SetFocus(createForm(i + 1).ShowModal())
 			})
 
 		title := fmt.Sprintf("Window%d", i)
@@ -57,6 +80,7 @@ func main() {
 		}
 		window.AddButton(maxMinButton)
 		window.Show()
+		return window
 	}
 
 	for i := 0; i < 10; i++ {

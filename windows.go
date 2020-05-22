@@ -85,23 +85,41 @@ func (w *Window) Draw(screen tcell.Screen) {
 	}
 }
 
-func (w *Window) Show() {
+func (w *Window) Show() *Window {
 	w.manager.Show(w)
+	return w
 }
 
-func (w *Window) Hide() {
+func (w *Window) Hide() *Window {
 	w.manager.Hide(w)
+	return w
 }
 
-func (w *Window) Maximize() {
+func (w *Window) Maximize() *Window {
 	w.restoreX, w.restoreY, w.restoreHeight, w.restoreWidth = w.GetRect()
 	w.SetRect(w.manager.GetInnerRect())
 	w.maximized = true
+	return w
 }
 
-func (w *Window) Restore() {
+func (w *Window) Restore() *Window {
 	w.SetRect(w.restoreX, w.restoreY, w.restoreHeight, w.restoreWidth)
 	w.maximized = false
+	return w
+}
+
+func (w *Window) ShowModal() *Window {
+	w.manager.ShowModal(w)
+	return w
+}
+
+func (w *Window) Center() *Window {
+	mx, my, mw, mh := w.manager.GetInnerRect()
+	x, y, width, height := w.GetRect()
+	x = mx + (mw-width)/2
+	y = my + (mh-height)/2
+	w.SetRect(x, y, width, height)
+	return w
 }
 
 // Focus is called when this primitive receives focus.
