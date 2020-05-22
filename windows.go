@@ -282,27 +282,64 @@ func (wm *WindowManager) FindPrimitive(p Primitive) *Window {
 	return nil
 }
 
-func (wm *WindowManager) BringToFront(window *Window) *WindowManager {
+func (wm *WindowManager) WindowCount() int {
 	wm.Lock()
 	defer wm.Unlock()
-	for i, wnd := range wm.windows {
-		if wnd == window {
-			wm.windows = append(append(wm.windows[:i], wm.windows[i+1:]...), window)
-			break
-		}
-	}
-	return wm
+	return len(wm.windows)
 }
 
-func (wm *WindowManager) SendToBack(window *Window) *WindowManager {
+func (wm *WindowManager) Window(i int) *Window {
 	wm.Lock()
 	defer wm.Unlock()
+	if i < 0 || i >= len(wm.windows) {
+		return nil
+	}
+	return wm.windows[i]
+}
+
+func (wm *WindowManager) getZ(window *Window) int {
 	for i, wnd := range wm.windows {
 		if wnd == window {
-			wm.windows = append([]*Window{window}, append(wm.windows[:i], wm.windows[i+1:]...)...)
-			break
+			return i
 		}
 	}
+	return -1
+}
+func (wm *WindowManager) GetZ(window *Window) int {
+	wm.Lock()
+	defer wm.Unlock()
+	return wm.getZ(window)
+}
+
+func (wm *WindowManager) SetZ(window *Window, newZ int) *WindowManager {
+	wm.Lock()
+	defer wm.Unlock()
+	oldZ := wm.getZ(window)
+	lenW := len(wm.windows)
+	if oldZ == -1 {
+		return wm
+	}
+
+	if newZ < 0 || newZ >= lenW {
+		newZ = lenW - 1
+	}
+
+	newWindows := make([]*Window, lenW)
+	for i, j := 0, 0; i < lenW; j++ {
+		if j == oldZ {
+			j++
+		}
+		if i == newZ {
+			j--
+		} else {
+			newWindows[i] = wm.windows[j]
+		}
+		i++
+	}
+
+	newWindows[newZ] = window
+	wm.windows = newWindows
+
 	return wm
 }
 
