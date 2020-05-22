@@ -27,6 +27,9 @@ const (
 	WindowButtonRight
 )
 
+const WindowZTop = -1
+const WindowZBottom = 0
+
 const minWindowWidth = 3
 const minWindowHeight = 3
 
@@ -53,6 +56,17 @@ type Window struct {
 	Resizable     bool
 }
 
+// NewWindow creates a new window in this window manager
+func NewWindow(root Primitive) *Window {
+	window := &Window{
+		root: root,
+		Box:  NewBox().SetBackgroundColor(tcell.ColorDefault),
+	}
+	window.restoreX, window.restoreY, window.restoreHeight, window.restoreWidth = window.GetRect()
+	window.SetBorder(true)
+	return window
+}
+
 func (w *Window) SetRoot(root Primitive) {
 	w.root = root
 }
@@ -69,33 +83,44 @@ func (w *Window) Draw(screen tcell.Screen) {
 		w.root.Draw(NewClipRegion(screen, x, y, width, height))
 	}
 
-	x, y, width, height := w.GetRect()
-	screen = NewClipRegion(screen, x, y, width, height)
-	for _, button := range w.buttons {
-		buttonX, buttonY := button.offsetX+x, button.offsetY+y
-		if button.offsetX < 0 {
-			buttonX += width
-		}
-		if button.offsetY < 0 {
-			buttonY += height
-		}
+	if w.border {
+		x, y, width, height := w.GetRect()
+		screen = NewClipRegion(screen, x, y, width, height)
+		for _, button := range w.buttons {
+			buttonX, buttonY := button.offsetX+x, button.offsetY+y
+			if button.offsetX < 0 {
+				buttonX += width
+			}
+			if button.offsetY < 0 {
+				buttonY += height
+			}
 
-		//screen.SetContent(buttonX, buttonY, button.Symbol, nil, tcell.StyleDefault.Foreground(tcell.ColorYellow))
-		Print(screen, Escape(fmt.Sprintf("[%c]", button.Symbol)), buttonX-1, buttonY, 9, 0, tcell.ColorYellow)
+			//screen.SetContent(buttonX, buttonY, button.Symbol, nil, tcell.StyleDefault.Foreground(tcell.ColorYellow))
+			Print(screen, Escape(fmt.Sprintf("[%c]", button.Symbol)), buttonX-1, buttonY, 9, 0, tcell.ColorYellow)
+		}
+	}
+}
+
+func (w *Window) checkManager() {
+	if w.manager == nil {
+		panic("Window must be added to a Window Manager to call this method")
 	}
 }
 
 func (w *Window) Show() *Window {
+	w.checkManager()
 	w.manager.Show(w)
 	return w
 }
 
 func (w *Window) Hide() *Window {
+	w.checkManager()
 	w.manager.Hide(w)
 	return w
 }
 
 func (w *Window) Maximize() *Window {
+	w.checkManager()
 	w.restoreX, w.restoreY, w.restoreHeight, w.restoreWidth = w.GetRect()
 	w.SetRect(w.manager.GetInnerRect())
 	w.maximized = true
@@ -109,11 +134,13 @@ func (w *Window) Restore() *Window {
 }
 
 func (w *Window) ShowModal() *Window {
+	w.checkManager()
 	w.manager.ShowModal(w)
 	return w
 }
 
 func (w *Window) Center() *Window {
+	w.checkManager()
 	mx, my, mw, mh := w.manager.GetInnerRect()
 	x, y, width, height := w.GetRect()
 	x = mx + (mw-width)/2
@@ -225,14 +252,9 @@ func (wm *WindowManager) SetFullScreen(fullScreen bool) *WindowManager {
 }
 
 // NewWindow creates a new window in this window manager
-func (wm *WindowManager) NewWindow(root Primitive, focus bool) *Window {
-	window := &Window{
-		root:    root,
-		manager: wm,
-		Box:     NewBox().SetBackgroundColor(tcell.ColorDefault),
-	}
-	window.restoreX, window.restoreY, window.restoreHeight, window.restoreWidth = window.GetRect()
-	window.SetBorder(true)
+func (wm *WindowManager) NewWindow(root Primitive) *Window {
+	window := NewWindow(root)
+	window.manager = wm
 	return window
 }
 
@@ -244,6 +266,7 @@ func (wm *WindowManager) Show(window *Window) *WindowManager {
 			return wm
 		}
 	}
+	window.manager = wm
 	wm.windows = append(wm.windows, window)
 	return wm
 }
@@ -311,13 +334,11 @@ func (wm *WindowManager) GetZ(window *Window) int {
 	return wm.getZ(window)
 }
 
-func (wm *WindowManager) SetZ(window *Window, newZ int) *WindowManager {
-	wm.Lock()
-	defer wm.Unlock()
+func (wm *WindowManager) setZ(window *Window, newZ int) {
 	oldZ := wm.getZ(window)
 	lenW := len(wm.windows)
 	if oldZ == -1 {
-		return wm
+		return
 	}
 
 	if newZ < 0 || newZ >= lenW {
@@ -339,7 +360,12 @@ func (wm *WindowManager) SetZ(window *Window, newZ int) *WindowManager {
 
 	newWindows[newZ] = window
 	wm.windows = newWindows
+}
 
+func (wm *WindowManager) SetZ(window *Window, newZ int) *WindowManager {
+	wm.Lock()
+	defer wm.Unlock()
+	wm.setZ(window, newZ)
 	return wm
 }
 
@@ -362,7 +388,7 @@ func (wm *WindowManager) Draw(screen tcell.Screen) {
 	if lenW > 1 {
 		for i, window := range wm.windows {
 			if window.HasFocus() && i != lenW-1 {
-				wm.windows = append(append(wm.windows[:i], wm.windows[i+1:]...), window)
+				wm.setZ(window, WindowZTop)
 				break
 			}
 		}
@@ -495,7 +521,7 @@ func (wm *WindowManager) MouseHandler() func(action MouseAction, event *tcell.Ev
 				continue
 			}
 
-			if action == MouseLeftDown {
+			if action == MouseLeftDown && window.border {
 				if !window.HasFocus() {
 					setFocus(window)
 				}
