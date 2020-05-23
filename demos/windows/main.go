@@ -6,9 +6,10 @@ import (
 	"strconv"
 
 	"gitlab.com/tslocum/cview"
+	"gitlab.com/tslocum/cview/winman"
 )
 
-func calculator() *cview.Window {
+func calculator() *winman.Window {
 
 	value := []float64{0.0, 0.0}
 	i := 0
@@ -86,10 +87,10 @@ func calculator() *cview.Window {
 		grid.AddItem(newCalcButton(b), row, col, 1, 1, 1, 1, true)
 	}
 
-	wnd := cview.NewWindow().SetRoot(grid)
-	wnd.AddButton(&cview.WindowButton{
+	wnd := winman.NewWindow().SetRoot(grid)
+	wnd.AddButton(&winman.Button{
 		Symbol:       'X',
-		Alignment:    cview.AlignLeft,
+		Alignment:    winman.ButtonLeft,
 		ClickHandler: func() { wnd.Hide() },
 	})
 	wnd.SetRect(0, 0, 30, 15)
@@ -102,21 +103,21 @@ func calculator() *cview.Window {
 func main() {
 
 	app := cview.NewApplication()
-	wm := cview.NewWindowManager()
+	wm := winman.NewWindowManager()
 
 	modalWindowMessage := cview.NewTextView().SetText("\nChanges have been saved").SetTextAlign(cview.AlignCenter)
 	modalWindowContent := cview.NewFlex().
 		SetDirection(cview.FlexRow).
 		AddItem(modalWindowMessage, 0, 1, false)
-	modalWindow := cview.NewWindow().SetRoot(modalWindowContent)
+	modalWindow := winman.NewWindow().SetRoot(modalWindowContent)
 	modalWindowButton := cview.NewButton("OK").SetSelectedFunc(func() { wm.Hide(modalWindow) })
 	modalWindowContent.AddItem(modalWindowButton, 1, 0, true)
 	modalWindow.SetTitle("Confirmation")
 	modalWindow.SetRect(4, 2, 30, 6)
 	modalWindow.Draggable = true
 
-	var createForm func(int) *cview.Window
-	createForm = func(i int) *cview.Window {
+	var createForm func(int) *winman.Window
+	createForm = func(i int) *winman.Window {
 
 		form := cview.NewForm()
 		window := wm.NewWindow().SetRoot(form)
@@ -167,15 +168,15 @@ func main() {
 		title := fmt.Sprintf("Window%d", i)
 		window.SetBorder(true).SetTitle(title).SetTitleAlign(cview.AlignCenter)
 		window.SetRect(2+i*2, 2+i, 50, 30)
-		window.AddButton(&cview.WindowButton{
+		window.AddButton(&winman.Button{
 			Symbol:       'X',
-			Alignment:    cview.AlignLeft,
+			Alignment:    winman.ButtonLeft,
 			ClickHandler: func() { window.Hide() },
 		})
-		var maxMinButton *cview.WindowButton
-		maxMinButton = &cview.WindowButton{
+		var maxMinButton *winman.Button
+		maxMinButton = &winman.Button{
 			Symbol:    '▴',
-			Alignment: cview.AlignRight,
+			Alignment: winman.ButtonRight,
 			ClickHandler: func() {
 				if window.IsMaximized() {
 					window.Restore()
