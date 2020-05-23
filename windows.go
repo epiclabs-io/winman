@@ -57,18 +57,23 @@ type Window struct {
 }
 
 // NewWindow creates a new window in this window manager
-func NewWindow(root Primitive) *Window {
+func NewWindow() *Window {
 	window := &Window{
-		root: root,
-		Box:  NewBox().SetBackgroundColor(tcell.ColorDefault),
+		Box: NewBox().SetBackgroundColor(tcell.ColorDefault),
 	}
 	window.restoreX, window.restoreY, window.restoreHeight, window.restoreWidth = window.GetRect()
 	window.SetBorder(true)
+	window.focus = window
 	return window
 }
 
-func (w *Window) SetRoot(root Primitive) {
+func (w *Window) SetRoot(root Primitive) *Window {
 	w.root = root
+	return w
+}
+
+func (w *Window) GetRoot() Primitive {
+	return w.root
 }
 
 func (w *Window) Draw(screen tcell.Screen) {
@@ -151,12 +156,18 @@ func (w *Window) Center() *Window {
 
 // Focus is called when this primitive receives focus.
 func (w *Window) Focus(delegate func(p Primitive)) {
-	delegate(w.root)
-	w.Box.Focus(nil)
+	if w.root != nil {
+		delegate(w.root)
+		w.Box.Focus(nil)
+	} else {
+		delegate(w.Box)
+	}
 }
 
 func (w *Window) Blur() {
-	w.root.Blur()
+	if w.root != nil {
+		w.root.Blur()
+	}
 	w.Box.Blur()
 }
 
@@ -166,7 +177,11 @@ func (w *Window) IsMaximized() bool {
 
 // HasFocus returns whether or not this primitive has focus.
 func (w *Window) HasFocus() bool {
-	return w.root.GetFocusable().HasFocus()
+	if w.root != nil {
+		return w.root.GetFocusable().HasFocus()
+	} else {
+		return w.Box.HasFocus()
+	}
 }
 
 func (w *Window) MouseHandler() func(action MouseAction, event *tcell.EventMouse, setFocus func(p Primitive)) (consumed bool, capture Primitive) {
@@ -185,7 +200,10 @@ func (w *Window) MouseHandler() func(action MouseAction, event *tcell.EventMouse
 				}
 			}
 		}
-		return w.root.MouseHandler()(action, event, setFocus)
+		if w.root != nil {
+			return w.root.MouseHandler()(action, event, setFocus)
+		}
+		return false, nil
 	})
 }
 
@@ -204,6 +222,17 @@ func (w *Window) AddButton(button *WindowButton) *Window {
 	}
 
 	return w
+}
+
+func (w *Window) GetButton(i int) *WindowButton {
+	if i < 0 || i >= len(w.buttons) {
+		return nil
+	}
+	return w.buttons[i]
+}
+
+func (w *Window) ButtonCount() int {
+	return len(w.buttons)
 }
 
 type WindowManager struct {
@@ -252,8 +281,8 @@ func (wm *WindowManager) SetFullScreen(fullScreen bool) *WindowManager {
 }
 
 // NewWindow creates a new window in this window manager
-func (wm *WindowManager) NewWindow(root Primitive) *Window {
-	window := NewWindow(root)
+func (wm *WindowManager) NewWindow() *Window {
+	window := NewWindow()
 	window.manager = wm
 	return window
 }
