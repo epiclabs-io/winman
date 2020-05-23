@@ -46,6 +46,8 @@ func calculator() *cview.Window {
 						if value[1] == 0.0 {
 							display.SetText("Err")
 							value[0] = 0.0
+						} else {
+							value[0] = value[0] / value[1]
 						}
 					}
 					i = 0
@@ -84,7 +86,7 @@ func calculator() *cview.Window {
 		grid.AddItem(newCalcButton(b), row, col, 1, 1, 1, 1, true)
 	}
 
-	wnd := cview.NewWindow(grid)
+	wnd := cview.NewWindow().SetRoot(grid)
 	wnd.AddButton(&cview.WindowButton{
 		Symbol:       'X',
 		Alignment:    cview.AlignLeft,
@@ -106,7 +108,7 @@ func main() {
 	modalWindowContent := cview.NewFlex().
 		SetDirection(cview.FlexRow).
 		AddItem(modalWindowMessage, 0, 1, false)
-	modalWindow := cview.NewWindow(modalWindowContent)
+	modalWindow := cview.NewWindow().SetRoot(modalWindowContent)
 	modalWindowButton := cview.NewButton("OK").SetSelectedFunc(func() { wm.Hide(modalWindow) })
 	modalWindowContent.AddItem(modalWindowButton, 1, 0, true)
 	modalWindow.SetTitle("Confirmation")
@@ -117,7 +119,7 @@ func main() {
 	createForm = func(i int) *cview.Window {
 
 		form := cview.NewForm()
-		window := wm.NewWindow(form)
+		window := wm.NewWindow().SetRoot(form)
 		window.Draggable = true
 		window.Resizable = true
 
