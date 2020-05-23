@@ -1,4 +1,4 @@
-package cview
+package winman
 
 import "github.com/gdamore/tcell"
 

@@ -6,9 +6,9 @@ import (
 	"testing"
 	"unicode/utf8"
 
+	"github.com/epiclabs-io/winman"
 	"github.com/gdamore/tcell"
-	"gitlab.com/tslocum/cview"
-	"gitlab.com/tslocum/cview/winman"
+	"github.com/rivo/tview"
 )
 
 type ScreenMonitor struct {
@@ -46,14 +46,14 @@ func (sm *ScreenMonitor) Line(x, y, width int) string {
 }
 
 type BoringPrimitive struct {
-	*cview.Box
+	*tview.Box
 	Symbol     rune
 	clickCount int
 }
 
 func NewBoringPrimitive(Symbol rune) *BoringPrimitive {
 	return &BoringPrimitive{
-		Box:    cview.NewBox(),
+		Box:    tview.NewBox(),
 		Symbol: Symbol,
 	}
 }
@@ -67,8 +67,8 @@ func (bp *BoringPrimitive) Draw(screen tcell.Screen) {
 	}
 }
 
-func (bp *BoringPrimitive) MouseHandler() func(action cview.MouseAction, event *tcell.EventMouse, setFocus func(p cview.Primitive)) (consumed bool, capture cview.Primitive) {
-	return func(action cview.MouseAction, event *tcell.EventMouse, setFocus func(p cview.Primitive)) (consumed bool, capture cview.Primitive) {
+func (bp *BoringPrimitive) MouseHandler() func(action tview.MouseAction, event *tcell.EventMouse, setFocus func(p tview.Primitive)) (consumed bool, capture tview.Primitive) {
+	return func(action tview.MouseAction, event *tcell.EventMouse, setFocus func(p tview.Primitive)) (consumed bool, capture tview.Primitive) {
 		x, y := event.Position()
 		if bp.InRect(x, y) {
 			bp.clickCount++
@@ -154,8 +154,8 @@ func TestWindow(t *testing.T) {
 			// if handlers are called.
 			var clickedButton int
 			clickCounter := make(map[int]int)
-			//var focusedPrimitive cview.Primitive
-			setFocus := func(p cview.Primitive) {
+			//var focusedPrimitive tview.Primitive
+			setFocus := func(p tview.Primitive) {
 				//focusedPrimitive = p
 			}
 
@@ -179,7 +179,7 @@ func TestWindow(t *testing.T) {
 					clickedButton = -1
 					//focusedPrimitive = nil
 					event := tcell.NewEventMouse(x, y, tcell.Button1, tcell.ModNone)
-					windowMouseHandler(cview.MouseLeftClick, event, setFocus)
+					windowMouseHandler(tview.MouseLeftClick, event, setFocus)
 					if clickedButton != -1 {
 						expectedPos := wt.buttonClicks[clickedButton]
 						if x != expectedPos.x || y != expectedPos.y {

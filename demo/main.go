@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"strconv"
 
-	"gitlab.com/tslocum/cview"
-	"gitlab.com/tslocum/cview/winman"
+	"github.com/epiclabs-io/winman"
+	"github.com/rivo/tview"
 )
 
 func calculator() *winman.Window {
@@ -15,9 +15,9 @@ func calculator() *winman.Window {
 	i := 0
 	decimal := 1.0
 	op := ' '
-	display := cview.NewTextView().
+	display := tview.NewTextView().
 		SetText("0.").
-		SetTextAlign(cview.AlignRight)
+		SetTextAlign(tview.AlignRight)
 
 	keyPressed := func(char rune) {
 		if char >= '0' && char <= '9' {
@@ -67,13 +67,13 @@ func calculator() *winman.Window {
 		display.SetText(fmt.Sprintf("%g", value[i]))
 	}
 
-	newCalcButton := func(char rune) *cview.Button {
-		return cview.NewButton(string(char)).SetSelectedFunc(func() {
+	newCalcButton := func(char rune) *tview.Button {
+		return tview.NewButton(string(char)).SetSelectedFunc(func() {
 			keyPressed(char)
 		})
 	}
 
-	grid := cview.NewGrid().
+	grid := tview.NewGrid().
 		SetRows(2, 0, 0, 0, 0).
 		SetColumns(0, 0, 0, 0).
 		SetBorders(true).
@@ -102,15 +102,15 @@ func calculator() *winman.Window {
 
 func main() {
 
-	app := cview.NewApplication()
+	app := tview.NewApplication()
 	wm := winman.NewWindowManager()
 
-	modalWindowMessage := cview.NewTextView().SetText("\nChanges have been saved").SetTextAlign(cview.AlignCenter)
-	modalWindowContent := cview.NewFlex().
-		SetDirection(cview.FlexRow).
+	modalWindowMessage := tview.NewTextView().SetText("\nChanges have been saved").SetTextAlign(tview.AlignCenter)
+	modalWindowContent := tview.NewFlex().
+		SetDirection(tview.FlexRow).
 		AddItem(modalWindowMessage, 0, 1, false)
 	modalWindow := winman.NewWindow().SetRoot(modalWindowContent)
-	modalWindowButton := cview.NewButton("OK").SetSelectedFunc(func() { wm.Hide(modalWindow) })
+	modalWindowButton := tview.NewButton("OK").SetSelectedFunc(func() { wm.Hide(modalWindow) })
 	modalWindowContent.AddItem(modalWindowButton, 1, 0, true)
 	modalWindow.SetTitle("Confirmation")
 	modalWindow.SetRect(4, 2, 30, 6)
@@ -119,7 +119,7 @@ func main() {
 	var createForm func(int) *winman.Window
 	createForm = func(i int) *winman.Window {
 
-		form := cview.NewForm()
+		form := tview.NewForm()
 		window := wm.NewWindow().SetRoot(form)
 		window.Draggable = true
 		window.Resizable = true
@@ -127,20 +127,20 @@ func main() {
 		form.AddDropDown("Title", []string{"Mr.", "Ms.", "Mrs.", "Dr.", "Prof."}, 0, nil).
 			AddInputField("First name", "", 20, nil, nil).
 			AddPasswordField("Password", "", 10, '*', nil).
-			AddCheckBox("", "Draggable", window.Draggable, func(checked bool) {
+			AddCheckbox("Draggable", window.Draggable, func(checked bool) {
 				window.Draggable = checked
 			}).
-			AddCheckBox("", "Resizable", window.Draggable, func(checked bool) {
+			AddCheckbox("Resizable", window.Draggable, func(checked bool) {
 				window.Resizable = checked
 			}).
-			AddCheckBox("", "Border", window.Draggable, func(checked bool) {
+			AddCheckbox("Border", window.Draggable, func(checked bool) {
 				window.SetBorder(checked)
 			}).
 			AddInputField("Z-Index", "", 20, func(text string, char rune) bool {
 				return char >= '0' && char <= '9'
 			}, nil).
 			AddButton("Set Z", func() {
-				zIndexField := form.GetFormItemByLabel("Z-Index").(*cview.InputField)
+				zIndexField := form.GetFormItemByLabel("Z-Index").(*tview.InputField)
 				z, _ := strconv.Atoi(zIndexField.GetText())
 				wm.SetZ(window, z)
 				app.SetFocus(wm.Window(wm.WindowCount() - 1))
@@ -166,7 +166,7 @@ func main() {
 			})
 
 		title := fmt.Sprintf("Window%d", i)
-		window.SetBorder(true).SetTitle(title).SetTitleAlign(cview.AlignCenter)
+		window.SetBorder(true).SetTitle(title).SetTitleAlign(tview.AlignCenter)
 		window.SetRect(2+i*2, 2+i, 50, 30)
 		window.AddButton(&winman.Button{
 			Symbol:       'X',

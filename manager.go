@@ -4,7 +4,7 @@ import (
 	"sync"
 
 	"github.com/gdamore/tcell"
-	"gitlab.com/tslocum/cview"
+	"github.com/rivo/tview"
 )
 
 type WindowEdge int16
@@ -29,7 +29,7 @@ const minWindowHeight = 3
 // flexItem holds layout options for one item.
 
 type Manager struct {
-	*cview.Box
+	*tview.Box
 
 	// The windows to be positioned.
 	windows []*Window
@@ -51,10 +51,10 @@ type Manager struct {
 // To clear a Flex's background before any items are drawn, set it to the
 // desired color:
 //
-//   flex.SetBackgroundColor(cview.Styles.PrimitiveBackgroundColor)
+//   flex.SetBackgroundColor(tview.Styles.PrimitiveBackgroundColor)
 func NewWindowManager() *Manager {
 	wm := &Manager{
-		Box: cview.NewBox().SetBackgroundColor(tcell.ColorDefault),
+		Box: tview.NewBox().SetBackgroundColor(tcell.ColorDefault),
 	}
 	return wm
 }
@@ -102,7 +102,7 @@ func (wm *Manager) Hide(window *Window) *Manager {
 	return wm
 }
 
-func (wm *Manager) FindPrimitive(p cview.Primitive) *Window {
+func (wm *Manager) FindPrimitive(p tview.Primitive) *Window {
 	wm.Lock()
 	defer wm.Unlock()
 	for _, window := range wm.windows {
@@ -234,7 +234,7 @@ func (wm *Manager) Draw(screen tcell.Screen) {
 }
 
 // Focus is called when this primitive receives focus.
-func (wm *Manager) Focus(delegate func(p cview.Primitive)) {
+func (wm *Manager) Focus(delegate func(p tview.Primitive)) {
 	wm.Lock()
 	if len(wm.windows) > 0 {
 		window := wm.windows[0]
@@ -270,8 +270,8 @@ func (wm *Manager) HasFocus() bool {
 }
 
 // MouseHandler returns the mouse handler for this primitive.
-func (wm *Manager) MouseHandler() func(action cview.MouseAction, event *tcell.EventMouse, setFocus func(p cview.Primitive)) (consumed bool, capture cview.Primitive) {
-	return wm.WrapMouseHandler(func(action cview.MouseAction, event *tcell.EventMouse, setFocus func(p cview.Primitive)) (consumed bool, capture cview.Primitive) {
+func (wm *Manager) MouseHandler() func(action tview.MouseAction, event *tcell.EventMouse, setFocus func(p tview.Primitive)) (consumed bool, capture tview.Primitive) {
+	return wm.WrapMouseHandler(func(action tview.MouseAction, event *tcell.EventMouse, setFocus func(p tview.Primitive)) (consumed bool, capture tview.Primitive) {
 		if !wm.InRect(event.Position()) {
 			return false, nil
 		}
@@ -279,9 +279,9 @@ func (wm *Manager) MouseHandler() func(action cview.MouseAction, event *tcell.Ev
 
 		if wm.draggedWindow != nil {
 			switch action {
-			case cview.MouseLeftUp:
+			case tview.MouseLeftUp:
 				wm.draggedWindow = nil
-			case cview.MouseMove:
+			case tview.MouseMove:
 				x, y := event.Position()
 				wx, wy, ww, wh := wm.draggedWindow.GetRect()
 				if wm.draggedEdge == WindowEdgeTop && wm.draggedWindow.Draggable {
@@ -321,7 +321,7 @@ func (wm *Manager) MouseHandler() func(action cview.MouseAction, event *tcell.Ev
 				continue
 			}
 
-			if action == cview.MouseLeftDown && window.border {
+			if action == tview.MouseLeftDown && window.border {
 				if !window.HasFocus() {
 					setFocus(window)
 				}

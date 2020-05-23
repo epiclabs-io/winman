@@ -4,12 +4,12 @@ import (
 	"fmt"
 
 	"github.com/gdamore/tcell"
-	"gitlab.com/tslocum/cview"
+	"github.com/rivo/tview"
 )
 
 type Window struct {
-	*cview.Box
-	root          cview.Primitive // The item to be positioned. May be nil for an empty item.
+	*tview.Box
+	root          tview.Primitive // The item to be positioned. May be nil for an empty item.
 	manager       *Manager
 	buttons       []*Button
 	border        bool
@@ -26,19 +26,19 @@ type Window struct {
 // NewWindow creates a new window in this window manager
 func NewWindow() *Window {
 	window := &Window{
-		Box: cview.NewBox().SetBackgroundColor(tcell.ColorDefault),
+		Box: tview.NewBox().SetBackgroundColor(tcell.ColorDefault),
 	}
 	window.restoreX, window.restoreY, window.restoreHeight, window.restoreWidth = window.GetRect()
 	window.SetBorder(true)
 	return window
 }
 
-func (w *Window) SetRoot(root cview.Primitive) *Window {
+func (w *Window) SetRoot(root tview.Primitive) *Window {
 	w.root = root
 	return w
 }
 
-func (w *Window) GetRoot() cview.Primitive {
+func (w *Window) GetRoot() tview.Primitive {
 	return w.root
 }
 
@@ -51,12 +51,12 @@ func (w *Window) Draw(screen tcell.Screen) {
 	if w.root != nil {
 		x, y, width, height := w.GetInnerRect()
 		w.root.SetRect(x, y, width, height)
-		w.root.Draw(cview.NewClipRegion(screen, x, y, width, height))
+		w.root.Draw(NewClipRegion(screen, x, y, width, height))
 	}
 
 	if w.border {
 		x, y, width, height := w.GetRect()
-		screen = cview.NewClipRegion(screen, x, y, width, height)
+		screen = NewClipRegion(screen, x, y, width, height)
 		for _, button := range w.buttons {
 			buttonX, buttonY := button.offsetX+x, button.offsetY+y
 			if button.offsetX < 0 {
@@ -67,7 +67,7 @@ func (w *Window) Draw(screen tcell.Screen) {
 			}
 
 			//screen.SetContent(buttonX, buttonY, button.Symbol, nil, tcell.StyleDefault.Foreground(tcell.ColorYellow))
-			cview.Print(screen, cview.Escape(fmt.Sprintf("[%c]", button.Symbol)), buttonX-1, buttonY, 9, 0, tcell.ColorYellow)
+			tview.Print(screen, tview.Escape(fmt.Sprintf("[%c]", button.Symbol)), buttonX-1, buttonY, 9, 0, tcell.ColorYellow)
 		}
 	}
 }
@@ -121,7 +121,7 @@ func (w *Window) Center() *Window {
 }
 
 // Focus is called when this primitive receives focus.
-func (w *Window) Focus(delegate func(p cview.Primitive)) {
+func (w *Window) Focus(delegate func(p tview.Primitive)) {
 	if w.root != nil {
 		delegate(w.root)
 		w.Box.Focus(nil)
@@ -158,9 +158,9 @@ func (w *Window) HasFocus() bool {
 	}
 }
 
-func (w *Window) MouseHandler() func(action cview.MouseAction, event *tcell.EventMouse, setFocus func(p cview.Primitive)) (consumed bool, capture cview.Primitive) {
-	return w.WrapMouseHandler(func(action cview.MouseAction, event *tcell.EventMouse, setFocus func(p cview.Primitive)) (consumed bool, capture cview.Primitive) {
-		if action == cview.MouseLeftClick {
+func (w *Window) MouseHandler() func(action tview.MouseAction, event *tcell.EventMouse, setFocus func(p tview.Primitive)) (consumed bool, capture tview.Primitive) {
+	return w.WrapMouseHandler(func(action tview.MouseAction, event *tcell.EventMouse, setFocus func(p tview.Primitive)) (consumed bool, capture tview.Primitive) {
+		if action == tview.MouseLeftClick {
 			x, y := event.Position()
 			wx, wy, width, _ := w.GetRect()
 			if y == wy {
