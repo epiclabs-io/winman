@@ -241,9 +241,6 @@ type WindowManager struct {
 	// The windows to be positioned.
 	windows []*Window
 
-	// If set to true, the WindowManager will use the entire screen as its available space
-	// instead its box dimensions.
-	fullScreen               bool
 	mouseWindow              *Window
 	dragOffsetX, dragOffsetY int
 	draggedWindow            *Window
@@ -267,16 +264,6 @@ func NewWindowManager() *WindowManager {
 		Box: NewBox().SetBackgroundColor(tcell.ColorDefault),
 	}
 	wm.focus = wm
-	return wm
-}
-
-// SetFullScreen sets the flag which, when true, causes the flex layout to use
-// the entire screen space instead of whatever size it is currently assigned to.
-func (wm *WindowManager) SetFullScreen(fullScreen bool) *WindowManager {
-	wm.Lock()
-	defer wm.Unlock()
-
-	wm.fullScreen = fullScreen
 	return wm
 }
 
@@ -404,14 +391,6 @@ func (wm *WindowManager) Draw(screen tcell.Screen) {
 
 	wm.Lock()
 	defer wm.Unlock()
-
-	// Calculate size and position of the items.
-
-	// Do we use the entire screen?
-	if wm.fullScreen {
-		width, height := screen.Size()
-		wm.SetRect(0, 0, width, height)
-	}
 
 	lenW := len(wm.windows)
 	if lenW > 1 {
