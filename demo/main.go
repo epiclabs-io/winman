@@ -125,6 +125,16 @@ func main() {
 		})
 	}
 
+	setZ := func(wnd *winman.Window, newZ int) {
+		go app.QueueUpdateDraw(func() {
+			newTopWindow := wm.Window(wm.WindowCount() - 2)
+			if newTopWindow != nil {
+				app.SetFocus(newTopWindow)
+				wm.SetZ(wnd, newZ)
+			}
+		})
+	}
+
 	createForm = func() *winman.Window {
 		counter++
 		form := tview.NewForm()
@@ -150,8 +160,7 @@ func main() {
 			AddButton("Set Z", func() {
 				zIndexField := form.GetFormItemByLabel("Z-Index").(*tview.InputField)
 				z, _ := strconv.Atoi(zIndexField.GetText())
-				wm.SetZ(window, z)
-				setFocus(wm.Window(wm.WindowCount() - 1))
+				setZ(window, z)
 			}).
 			AddButton("New", func() {
 				newWnd := createForm().Show()
