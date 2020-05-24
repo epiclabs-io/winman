@@ -125,9 +125,10 @@ func (w *Window) Center() *Window {
 // Focus is called when this primitive receives focus.
 func (w *Window) Focus(delegate func(p tview.Primitive)) {
 	if w.root != nil {
-		delegate(w.root)
+		//delegate(w.root)
+		w.root.Focus(delegate)
 	} else {
-		delegate(w.Box)
+		w.Box.Focus(delegate)
 	}
 }
 
