@@ -26,7 +26,7 @@ type Window struct {
 // NewWindow creates a new window in this window manager
 func NewWindow() *Window {
 	window := &Window{
-		Box: tview.NewBox().SetBackgroundColor(tcell.ColorDefault),
+		Box: tview.NewBox(),
 	}
 	window.restoreX, window.restoreY, window.restoreHeight, window.restoreWidth = window.GetRect()
 	window.SetBorder(true)
@@ -43,7 +43,9 @@ func (w *Window) GetRoot() tview.Primitive {
 }
 
 func (w *Window) Draw(screen tcell.Screen) {
-	if w.Box.HasFocus() && !w.HasFocus() {
+	if w.HasFocus() {
+		w.Box.Focus(nil)
+	} else {
 		w.Box.Blur()
 	}
 	w.Box.Draw(screen)
@@ -124,17 +126,9 @@ func (w *Window) Center() *Window {
 func (w *Window) Focus(delegate func(p tview.Primitive)) {
 	if w.root != nil {
 		delegate(w.root)
-		w.Box.Focus(nil)
 	} else {
 		delegate(w.Box)
 	}
-}
-
-func (w *Window) Blur() {
-	if w.root != nil {
-		w.root.Blur()
-	}
-	w.Box.Blur()
 }
 
 func (w *Window) IsMaximized() bool {

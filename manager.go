@@ -42,19 +42,9 @@ type Manager struct {
 	sync.Mutex
 }
 
-// NewFlex returns a new flexbox layout container with no primitives and its
-// direction set to FlexColumn. To add primitives to this layout, see AddItem().
-// To change the direction, see SetDirection().
-//
-// Note that Box, the superclass of Flex, will have its background color set to
-// transparent so that any nil flex items will leave their background unchanged.
-// To clear a Flex's background before any items are drawn, set it to the
-// desired color:
-//
-//   flex.SetBackgroundColor(tview.Styles.PrimitiveBackgroundColor)
 func NewWindowManager() *Manager {
 	wm := &Manager{
-		Box: tview.NewBox().SetBackgroundColor(tcell.ColorDefault),
+		Box: tview.NewBox(),
 	}
 	return wm
 }
@@ -177,6 +167,43 @@ func (wm *Manager) SetZ(window *Window, newZ int) *Manager {
 	return wm
 }
 
+// Focus is called when this primitive receives focus.
+func (wm *Manager) Focus(delegate func(p tview.Primitive)) {
+	wm.Lock()
+	lenW := len(wm.windows)
+	if lenW > 0 {
+		window := wm.windows[lenW-1]
+		wm.Unlock()
+		delegate(window)
+		return
+	}
+	wm.Unlock()
+}
+
+func (wm *Manager) SetRect(x, y, width, height int) {
+	wm.Box.SetRect(x, y, width, height)
+	wm.Lock()
+	defer wm.Unlock()
+	for _, window := range wm.windows {
+		wx, wy, ww, wh := window.GetRect()
+		window.SetRect(x+wx, y+wy, ww, wh)
+	}
+}
+
+// HasFocus returns whether or not this primitive has focus.
+func (wm *Manager) HasFocus() bool {
+	wm.Lock()
+	defer wm.Unlock()
+
+	for i := len(wm.windows) - 1; i >= 0; i-- {
+		window := wm.windows[i]
+		if window.HasFocus() {
+			return true
+		}
+	}
+	return false
+}
+
 // Draw draws this primitive onto the screen.
 func (wm *Manager) Draw(screen tcell.Screen) {
 	wm.Box.Draw(screen)
@@ -184,13 +211,12 @@ func (wm *Manager) Draw(screen tcell.Screen) {
 	wm.Lock()
 	defer wm.Unlock()
 
-	lenW := len(wm.windows)
-	if lenW > 1 {
-		for i, window := range wm.windows {
-			if window.HasFocus() && i != lenW-1 {
-				wm.setZ(window, WindowZTop)
-				break
-			}
+	topWindowIndex := len(wm.windows) - 1
+	for i := topWindowIndex; i >= 0; i-- {
+		window := wm.windows[i]
+		if window.HasFocus() && i != topWindowIndex {
+			wm.setZ(window, WindowZTop)
+			break
 		}
 	}
 
@@ -231,42 +257,6 @@ func (wm *Manager) Draw(screen tcell.Screen) {
 		window.SetRect(x, y, w, h)
 		window.Draw(screen)
 	}
-}
-
-// Focus is called when this primitive receives focus.
-func (wm *Manager) Focus(delegate func(p tview.Primitive)) {
-	wm.Lock()
-	if len(wm.windows) > 0 {
-		window := wm.windows[0]
-		wm.Unlock()
-		delegate(window)
-		return
-	}
-	wm.Unlock()
-}
-
-func (wm *Manager) SetRect(x, y, width, height int) {
-	wm.Box.SetRect(x, y, width, height)
-	wm.Lock()
-	defer wm.Unlock()
-	for _, window := range wm.windows {
-		wx, wy, ww, wh := window.GetRect()
-		window.SetRect(x+wx, y+wy, ww, wh)
-	}
-}
-
-// HasFocus returns whether or not this primitive has focus.
-func (wm *Manager) HasFocus() bool {
-	wm.Lock()
-	defer wm.Unlock()
-
-	for i := len(wm.windows) - 1; i >= 0; i-- {
-		window := wm.windows[i]
-		if window.GetFocusable().HasFocus() {
-			return true
-		}
-	}
-	return false
 }
 
 // MouseHandler returns the mouse handler for this primitive.

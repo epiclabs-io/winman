@@ -116,9 +116,17 @@ func main() {
 	modalWindow.SetRect(4, 2, 30, 6)
 	modalWindow.Draggable = true
 
-	var createForm func(int) *winman.Window
-	createForm = func(i int) *winman.Window {
+	var createForm func() *winman.Window
+	var counter = 0
 
+	setFocus := func(p tview.Primitive) {
+		go app.QueueUpdateDraw(func() {
+			app.SetFocus(p)
+		})
+	}
+
+	createForm = func() *winman.Window {
+		counter++
 		form := tview.NewForm()
 		window := wm.NewWindow().SetRoot(form)
 		window.Draggable = true
@@ -143,35 +151,38 @@ func main() {
 				zIndexField := form.GetFormItemByLabel("Z-Index").(*tview.InputField)
 				z, _ := strconv.Atoi(zIndexField.GetText())
 				wm.SetZ(window, z)
-				app.SetFocus(wm.Window(wm.WindowCount() - 1))
+				setFocus(wm.Window(wm.WindowCount() - 1))
 			}).
 			AddButton("New", func() {
-				app.SetFocus(createForm(i + 1).Show())
+				newWnd := createForm().Show()
+				setFocus(newWnd)
 			}).
 			AddButton("Modal", func() {
-				app.SetFocus(createForm(i + 1).ShowModal())
+				setFocus(createForm().ShowModal())
 			}).
 			AddButton("Save", func() {
-				app.SetFocus(modalWindow.ShowModal().Center())
+				setFocus(modalWindow.ShowModal().Center())
 			}).
 			AddButton("Calc", func() {
 				calc := calculator()
 				wm.Show(calc)
 				calc.Center()
-				app.SetFocus(calc)
-				window.SetTitle(fmt.Sprintf("%t", calc.HasFocus()))
+				setFocus(calc)
 			}).
 			AddButton("Quit", func() {
 				app.Stop()
 			})
 
-		title := fmt.Sprintf("Window%d", i)
+		title := fmt.Sprintf("Window%d", counter)
 		window.SetBorder(true).SetTitle(title).SetTitleAlign(tview.AlignCenter)
-		window.SetRect(2+i*2, 2+i, 50, 30)
+		window.SetRect(2+counter*2, 2+counter, 50, 30)
 		window.AddButton(&winman.Button{
-			Symbol:       'X',
-			Alignment:    winman.ButtonLeft,
-			ClickHandler: func() { window.Hide() },
+			Symbol:    'X',
+			Alignment: winman.ButtonLeft,
+			ClickHandler: func() {
+				window.Hide()
+				setFocus(wm)
+			},
 		})
 		var maxMinButton *winman.Button
 		maxMinButton = &winman.Button{
@@ -192,8 +203,8 @@ func main() {
 		return window
 	}
 
-	for i := 0; i < 10; i++ {
-		createForm(i)
+	for i := 0; i < 1; i++ {
+		createForm()
 	}
 
 	if err := app.SetRoot(wm, true).EnableMouse(true).Run(); err != nil {
