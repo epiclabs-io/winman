@@ -82,6 +82,7 @@ type Position struct {
 	x int
 	y int
 }
+
 type WindowTest struct {
 	wnd          *winman.Window
 	buttonClicks []Position
@@ -204,4 +205,44 @@ func TestWindow(t *testing.T) {
 
 		})
 	}
+}
+
+func delegate(p tview.Primitive) {
+	p.Focus(delegate)
+}
+
+func TestFocusDelegation(t *testing.T) {
+	root := NewBoringPrimitive('%')
+	wnd := winman.NewWindow()
+
+	hasFocus := wnd.HasFocus()
+	if hasFocus == true {
+		t.Fatal("Expected a newly created window without root to not have focus, since Focus() was not called")
+	}
+
+	// set focus and check if windows shows as focused
+	wnd.Focus(delegate)
+	hasFocus = wnd.HasFocus()
+	if hasFocus == false {
+		t.Fatal("Expected to have focus")
+	}
+
+	wnd.SetRoot(root)
+	hasFocus = wnd.HasFocus()
+	if hasFocus == true {
+		t.Fatalf("Expected not to have focus, since root does not have focus")
+	}
+
+	// set focus. Focus should be passed on to root and retained.
+	wnd.Focus(delegate)
+	hasFocus = wnd.HasFocus()
+	if hasFocus == false {
+		t.Fatal("Expected window to have focus")
+	}
+
+	hasFocus = root.HasFocus()
+	if hasFocus == false {
+		t.Fatal("Expected root to have focus")
+	}
+
 }

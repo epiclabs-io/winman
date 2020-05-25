@@ -23,8 +23,8 @@ const (
 const WindowZTop = -1
 const WindowZBottom = 0
 
-const minWindowWidth = 3
-const minWindowHeight = 3
+var MinWindowWidth = 3
+var MinWindowHeight = 3
 
 // flexItem holds layout options for one item.
 
@@ -174,30 +174,20 @@ func (wm *Manager) Focus(delegate func(p tview.Primitive)) {
 	if lenW > 0 {
 		window := wm.windows[lenW-1]
 		wm.Unlock()
-		delegate(window)
+		window.Focus(delegate)
 		return
 	}
 	wm.Unlock()
-}
-
-func (wm *Manager) SetRect(x, y, width, height int) {
-	wm.Box.SetRect(x, y, width, height)
-	wm.Lock()
-	defer wm.Unlock()
-	for _, window := range wm.windows {
-		wx, wy, ww, wh := window.GetRect()
-		window.SetRect(x+wx, y+wy, ww, wh)
-	}
 }
 
 // HasFocus returns whether or not this primitive has focus.
 func (wm *Manager) HasFocus() bool {
 	wm.Lock()
 	defer wm.Unlock()
-
+	// iterate over all windows. If any has focus, then the
+	// this window manager has focus.
 	for i := len(wm.windows) - 1; i >= 0; i-- {
-		window := wm.windows[i]
-		if window.HasFocus() {
+		if wm.windows[i].HasFocus() {
 			return true
 		}
 	}
@@ -211,50 +201,71 @@ func (wm *Manager) Draw(screen tcell.Screen) {
 	wm.Lock()
 	defer wm.Unlock()
 
+	// Ensure that the window with focus has the highest Z-index:
 	topWindowIndex := len(wm.windows) - 1
 	for i := topWindowIndex; i >= 0; i-- {
 		window := wm.windows[i]
-		if window.HasFocus() && i != topWindowIndex {
-			wm.setZ(window, WindowZTop)
+		if window.HasFocus() {
+			if i < topWindowIndex {
+				wm.setZ(window, WindowZTop) // move focused window on top
+			}
 			break
 		}
 	}
-
+	// make sure windows are not out of bounds, too small,
+	// or too big to fit within the window manager:
 	for _, window := range wm.windows {
 		mx, my, mw, mh := wm.GetInnerRect()
 		x, y, w, h := window.GetRect()
+
+		// Avoid window overflowing on the left:
 		if x < mx {
 			x = mx
 		}
+
+		// Avoid window overflowing on the top:
 		if y < my {
 			y = my
 		}
 
-		if w < minWindowWidth {
-			w = minWindowWidth
-		}
-		if h < minWindowHeight {
-			h = minWindowHeight
+		// Fix window that is too narrow:
+		if w < MinWindowWidth {
+			w = MinWindowWidth
 		}
 
+		// Fix window that is too short:
+		if h < MinWindowHeight {
+			h = MinWindowHeight
+		}
+
+		// reduce window that are too wide,
+		// or fix size if the window is maximized
 		if w > mw || window.maximized {
 			w = mw
 			x = mx
 		}
+
+		// reduce window that are too tall,
+		// or fix size if the window is maximized
 		if h > mh || window.maximized {
 			h = mh
 			y = my
 		}
 
+		// Avoid window overflowing on the right
 		if x+w > mx+mw {
 			x = mx + mw - w
 		}
 
+		// Avoid window overflowing on the bottom
 		if y+h > my+mh {
 			y = my + mh - h
 		}
 
+		// reposition window to the fixed coordinates:
 		window.SetRect(x, y, w, h)
+
+		// now we can draw it
 		window.Draw(screen)
 	}
 }

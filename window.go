@@ -93,11 +93,13 @@ func (w *Window) Hide() *Window {
 }
 
 func (w *Window) Maximize() *Window {
-	w.checkManager()
 	w.restoreX, w.restoreY, w.restoreHeight, w.restoreWidth = w.GetRect()
-	w.SetRect(w.manager.GetInnerRect())
 	w.maximized = true
 	return w
+}
+
+func (w *Window) IsModal() bool {
+	return w.modal
 }
 
 func (w *Window) Restore() *Window {
@@ -125,7 +127,6 @@ func (w *Window) Center() *Window {
 // Focus is called when this primitive receives focus.
 func (w *Window) Focus(delegate func(p tview.Primitive)) {
 	if w.root != nil {
-		//delegate(w.root)
 		w.root.Focus(delegate)
 	} else {
 		w.Box.Focus(delegate)
