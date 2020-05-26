@@ -84,7 +84,7 @@ type Position struct {
 }
 
 type WindowTest struct {
-	wnd          *winman.Window
+	wnd          *winman.WindowBase
 	buttonClicks []Position
 	lines        []string
 }

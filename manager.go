@@ -28,17 +28,21 @@ var MinWindowHeight = 3
 
 // flexItem holds layout options for one item.
 
+func inRect(wnd Window, x, y int) bool {
+	rectX, rectY, width, height := wnd.GetRect()
+	return x >= rectX && x < rectX+width && y >= rectY && y < rectY+height
+}
+
 type Manager struct {
 	*tview.Box
 
 	// The windows to be positioned.
-	windows []*Window
+	windows []Window
 
-	mouseWindow              *Window
 	dragOffsetX, dragOffsetY int
-	draggedWindow            *Window
+	draggedWindow            Window
 	draggedEdge              WindowEdge
-	modalWindow              *Window
+	modalWindow              Window
 	sync.Mutex
 }
 
@@ -49,14 +53,7 @@ func NewWindowManager() *Manager {
 	return wm
 }
 
-// NewWindow creates a new window in this window manager
-func (wm *Manager) NewWindow() *Window {
-	window := NewWindow()
-	window.manager = wm
-	return window
-}
-
-func (wm *Manager) Show(window *Window) *Manager {
+func (wm *Manager) Show(window Window) *Manager {
 	wm.Lock()
 	defer wm.Unlock()
 	for _, wnd := range wm.windows {
@@ -64,25 +61,21 @@ func (wm *Manager) Show(window *Window) *Manager {
 			return wm
 		}
 	}
-	window.manager = wm
 	wm.windows = append(wm.windows, window)
 	return wm
 }
 
-func (wm *Manager) ShowModal(window *Window) *Manager {
+func (wm *Manager) ShowModal(window Window) *Manager {
 	wm.Show(window)
 	wm.Lock()
 	defer wm.Unlock()
-	wm.modalWindow = window
+	window.SetModal(true)
 	return wm
 }
 
-func (wm *Manager) Hide(window *Window) *Manager {
+func (wm *Manager) Hide(window Window) *Manager {
 	wm.Lock()
 	defer wm.Unlock()
-	if window == wm.modalWindow {
-		wm.modalWindow = nil
-	}
 	for i, wnd := range wm.windows {
 		if wnd == window {
 			wm.windows = append(wm.windows[:i], wm.windows[i+1:]...)
@@ -92,15 +85,13 @@ func (wm *Manager) Hide(window *Window) *Manager {
 	return wm
 }
 
-func (wm *Manager) FindPrimitive(p tview.Primitive) *Window {
-	wm.Lock()
-	defer wm.Unlock()
-	for _, window := range wm.windows {
-		if window.root == p {
-			return window
-		}
-	}
-	return nil
+func (wm *Manager) Center(window Window) *Manager {
+	mx, my, mw, mh := wm.GetInnerRect()
+	x, y, width, height := window.GetRect()
+	x = mx + (mw-width)/2
+	y = my + (mh-height)/2
+	window.SetRect(x, y, width, height)
+	return wm
 }
 
 func (wm *Manager) WindowCount() int {
@@ -109,7 +100,7 @@ func (wm *Manager) WindowCount() int {
 	return len(wm.windows)
 }
 
-func (wm *Manager) Window(i int) *Window {
+func (wm *Manager) Window(i int) Window {
 	wm.Lock()
 	defer wm.Unlock()
 	if i < 0 || i >= len(wm.windows) {
@@ -118,7 +109,7 @@ func (wm *Manager) Window(i int) *Window {
 	return wm.windows[i]
 }
 
-func (wm *Manager) getZ(window *Window) int {
+func (wm *Manager) getZ(window Window) int {
 	for i, wnd := range wm.windows {
 		if wnd == window {
 			return i
@@ -126,13 +117,13 @@ func (wm *Manager) getZ(window *Window) int {
 	}
 	return -1
 }
-func (wm *Manager) GetZ(window *Window) int {
+func (wm *Manager) GetZ(window Window) int {
 	wm.Lock()
 	defer wm.Unlock()
 	return wm.getZ(window)
 }
 
-func (wm *Manager) setZ(window *Window, newZ int) {
+func (wm *Manager) setZ(window Window, newZ int) {
 	oldZ := wm.getZ(window)
 	lenW := len(wm.windows)
 	if oldZ == -1 {
@@ -143,7 +134,7 @@ func (wm *Manager) setZ(window *Window, newZ int) {
 		newZ = lenW - 1
 	}
 
-	newWindows := make([]*Window, lenW)
+	newWindows := make([]Window, lenW)
 	for i, j := 0, 0; i < lenW; j++ {
 		if j == oldZ {
 			j++
@@ -160,7 +151,7 @@ func (wm *Manager) setZ(window *Window, newZ int) {
 	wm.windows = newWindows
 }
 
-func (wm *Manager) SetZ(window *Window, newZ int) *Manager {
+func (wm *Manager) SetZ(window Window, newZ int) *Manager {
 	wm.Lock()
 	defer wm.Unlock()
 	wm.setZ(window, newZ)
@@ -240,14 +231,14 @@ func (wm *Manager) Draw(screen tcell.Screen) {
 
 		// reduce window that are too wide,
 		// or fix size if the window is maximized
-		if w > mw || window.maximized {
+		if w > mw || window.IsMaximized() {
 			w = mw
 			x = mx
 		}
 
 		// reduce window that are too tall,
 		// or fix size if the window is maximized
-		if h > mh || window.maximized {
+		if h > mh || window.IsMaximized() {
 			h = mh
 			y = my
 		}
@@ -285,10 +276,10 @@ func (wm *Manager) MouseHandler() func(action tview.MouseAction, event *tcell.Ev
 			case tview.MouseMove:
 				x, y := event.Position()
 				wx, wy, ww, wh := wm.draggedWindow.GetRect()
-				if wm.draggedEdge == WindowEdgeTop && wm.draggedWindow.Draggable {
+				if wm.draggedEdge == WindowEdgeTop && wm.draggedWindow.GetDraggable() {
 					wm.draggedWindow.SetRect(x-wm.dragOffsetX, y-wm.dragOffsetY, ww, wh)
 				} else {
-					if wm.draggedWindow.Resizable {
+					if wm.draggedWindow.GetResizable() {
 						switch wm.draggedEdge {
 						case WindowEdgeRight:
 							wm.draggedWindow.SetRect(wx, wy, x-wx+1, wh)
@@ -308,9 +299,9 @@ func (wm *Manager) MouseHandler() func(action tview.MouseAction, event *tcell.Ev
 			}
 		}
 
-		var windows []*Window
+		var windows []Window
 		if wm.modalWindow != nil {
-			windows = []*Window{wm.modalWindow}
+			windows = []Window{wm.modalWindow}
 		} else {
 			windows = wm.windows
 		}
@@ -318,16 +309,16 @@ func (wm *Manager) MouseHandler() func(action tview.MouseAction, event *tcell.Ev
 		// Pass mouse events along to the first child item that takes it.
 		for i := len(windows) - 1; i >= 0; i-- {
 			window := windows[i]
-			if !window.InRect(event.Position()) {
+			x, y := event.Position()
+			if !inRect(window, x, y) {
 				continue
 			}
 
-			if action == tview.MouseLeftDown && window.border {
+			if action == tview.MouseLeftDown && window.HasBorder() {
 				if !window.HasFocus() {
 					setFocus(window)
 				}
 				wx, wy, ww, wh := window.GetRect()
-				x, y := event.Position()
 				wm.draggedEdge = WindowEdgeNone
 				switch {
 				case y == wy+wh-1:

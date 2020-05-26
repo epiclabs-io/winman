@@ -7,10 +7,20 @@ import (
 	"github.com/rivo/tview"
 )
 
-type Window struct {
+type Window interface {
+	tview.Primitive
+	SetModal(modal bool)
+	GetModal() bool
+	HasFocus() bool
+	IsMaximized() bool
+	GetResizable() bool
+	GetDraggable() bool
+	HasBorder() bool
+}
+
+type WindowBase struct {
 	*tview.Box
 	root          tview.Primitive // The item to be positioned. May be nil for an empty item.
-	manager       *Manager
 	buttons       []*Button
 	border        bool
 	restoreX      int
@@ -24,8 +34,8 @@ type Window struct {
 }
 
 // NewWindow creates a new window in this window manager
-func NewWindow() *Window {
-	window := &Window{
+func NewWindow() *WindowBase {
+	window := &WindowBase{
 		Box: tview.NewBox(),
 	}
 	window.restoreX, window.restoreY, window.restoreHeight, window.restoreWidth = window.GetRect()
@@ -33,16 +43,36 @@ func NewWindow() *Window {
 	return window
 }
 
-func (w *Window) SetRoot(root tview.Primitive) *Window {
+func (w *WindowBase) SetRoot(root tview.Primitive) *WindowBase {
 	w.root = root
 	return w
 }
 
-func (w *Window) GetRoot() tview.Primitive {
+func (w *WindowBase) GetRoot() tview.Primitive {
 	return w.root
 }
 
-func (w *Window) Draw(screen tcell.Screen) {
+func (w *WindowBase) SetModal(modal bool) {
+	w.modal = modal
+}
+
+func (w *WindowBase) GetModal() bool {
+	return w.modal
+}
+
+func (w *WindowBase) HasBorder() bool {
+	return w.border
+}
+
+func (w *WindowBase) GetDraggable() bool {
+	return w.Draggable
+}
+
+func (w *WindowBase) GetResizable() bool {
+	return w.Resizable
+}
+
+func (w *WindowBase) Draw(screen tcell.Screen) {
 	if w.HasFocus() {
 		w.Box.Focus(nil)
 	} else {
@@ -74,58 +104,28 @@ func (w *Window) Draw(screen tcell.Screen) {
 	}
 }
 
-func (w *Window) checkManager() {
-	if w.manager == nil {
-		panic("Window must be added to a Window Manager to call this method")
-	}
-}
-
-func (w *Window) Show() *Window {
-	w.checkManager()
-	w.manager.Show(w)
-	return w
-}
-
-func (w *Window) Hide() *Window {
-	w.checkManager()
-	w.manager.Hide(w)
-	return w
-}
-
-func (w *Window) Maximize() *Window {
+func (w *WindowBase) Maximize() *WindowBase {
 	w.restoreX, w.restoreY, w.restoreHeight, w.restoreWidth = w.GetRect()
 	w.maximized = true
 	return w
 }
 
-func (w *Window) IsModal() bool {
+func (w *WindowBase) IsMaximized() bool {
+	return w.maximized
+}
+
+func (w *WindowBase) IsModal() bool {
 	return w.modal
 }
 
-func (w *Window) Restore() *Window {
+func (w *WindowBase) Restore() *WindowBase {
 	w.SetRect(w.restoreX, w.restoreY, w.restoreHeight, w.restoreWidth)
 	w.maximized = false
 	return w
 }
 
-func (w *Window) ShowModal() *Window {
-	w.checkManager()
-	w.manager.ShowModal(w)
-	return w
-}
-
-func (w *Window) Center() *Window {
-	w.checkManager()
-	mx, my, mw, mh := w.manager.GetInnerRect()
-	x, y, width, height := w.GetRect()
-	x = mx + (mw-width)/2
-	y = my + (mh-height)/2
-	w.SetRect(x, y, width, height)
-	return w
-}
-
 // Focus is called when this primitive receives focus.
-func (w *Window) Focus(delegate func(p tview.Primitive)) {
+func (w *WindowBase) Focus(delegate func(p tview.Primitive)) {
 	if w.root != nil {
 		w.root.Focus(delegate)
 	} else {
@@ -133,20 +133,16 @@ func (w *Window) Focus(delegate func(p tview.Primitive)) {
 	}
 }
 
-func (w *Window) IsMaximized() bool {
-	return w.maximized
-}
-
 // SetBorder sets the flag indicating whether or not the box should have a
 // border.
-func (w *Window) SetBorder(show bool) *Window {
+func (w *WindowBase) SetBorder(show bool) *WindowBase {
 	w.border = show
 	w.Box.SetBorder(show)
 	return w
 }
 
 // HasFocus returns whether or not this primitive has focus.
-func (w *Window) HasFocus() bool {
+func (w *WindowBase) HasFocus() bool {
 	if w.root != nil {
 		return w.root.GetFocusable().HasFocus()
 	} else {
@@ -154,7 +150,7 @@ func (w *Window) HasFocus() bool {
 	}
 }
 
-func (w *Window) MouseHandler() func(action tview.MouseAction, event *tcell.EventMouse, setFocus func(p tview.Primitive)) (consumed bool, capture tview.Primitive) {
+func (w *WindowBase) MouseHandler() func(action tview.MouseAction, event *tcell.EventMouse, setFocus func(p tview.Primitive)) (consumed bool, capture tview.Primitive) {
 	return w.WrapMouseHandler(func(action tview.MouseAction, event *tcell.EventMouse, setFocus func(p tview.Primitive)) (consumed bool, capture tview.Primitive) {
 		if action == tview.MouseLeftClick {
 			x, y := event.Position()
@@ -177,7 +173,7 @@ func (w *Window) MouseHandler() func(action tview.MouseAction, event *tcell.Even
 	})
 }
 
-func (w *Window) AddButton(button *Button) *Window {
+func (w *WindowBase) AddButton(button *Button) *WindowBase {
 	w.buttons = append(w.buttons, button)
 
 	offsetLeft, offsetRight := 2, -3
@@ -194,13 +190,13 @@ func (w *Window) AddButton(button *Button) *Window {
 	return w
 }
 
-func (w *Window) GetButton(i int) *Button {
+func (w *WindowBase) GetButton(i int) *Button {
 	if i < 0 || i >= len(w.buttons) {
 		return nil
 	}
 	return w.buttons[i]
 }
 
-func (w *Window) ButtonCount() int {
+func (w *WindowBase) ButtonCount() int {
 	return len(w.buttons)
 }

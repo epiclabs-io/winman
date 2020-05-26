@@ -2,7 +2,6 @@ package winman_test
 
 import (
 	"fmt"
-	"strconv"
 	"testing"
 
 	"github.com/epiclabs-io/winman"
@@ -27,21 +26,6 @@ func TestWindowManager(t *testing.T) {
 		t.Fatalf("Expected to get the same pritive, got %v", r)
 	}
 
-	// The following methods should panic when there is no WindowManager assigned to this window:
-
-	assertPanic(t, func() {
-		wndA.Show()
-	})
-	assertPanic(t, func() {
-		wndA.Hide()
-	})
-	assertPanic(t, func() {
-		wndA.ShowModal()
-	})
-	assertPanic(t, func() {
-		wndA.Center()
-	})
-
 	// Test WindowCount
 	windowCount := wm.WindowCount()
 	if windowCount != 0 {
@@ -56,22 +40,22 @@ func TestWindowManager(t *testing.T) {
 		t.Fatalf("Expected Window Manager to have 1 window after adding 1 window, got %d", windowCount)
 	}
 
-	wndA.Show() // show the same window
+	wm.Show(wndA) // show the same window
 	windowCount = wm.WindowCount()
 	if windowCount != 1 {
 		t.Fatalf("Expected Window Manager to still have 1 window after adding the same window, got %d", windowCount)
 	}
 
-	wndA.Hide()
+	wm.Hide(wndA)
 	windowCount = wm.WindowCount()
 	if windowCount != 0 {
 		t.Fatalf("Expected Window Manager to have no windows after hiding the only window, got %d", windowCount)
 	}
 
 	// Test Z index get/set
-	wndA.Show() // show wndA again, should get z index 0
-	wndB := wm.NewWindow().SetRoot(rootB)
-	wndB.Show() // show wndB, should get z index 1 since it was shown later
+	wm.Show(wndA) // show wndA again, should get z index 0
+	wndB := winman.NewWindow().SetRoot(rootB)
+	wm.Show(wndB) // show wndB, should get z index 1 since it was shown later
 
 	z := wm.GetZ(wndA)
 	if z != 0 {
@@ -92,22 +76,6 @@ func TestWindowManager(t *testing.T) {
 	wB := wm.Window(1)
 	if wB != wndB {
 		t.Fatalf("Expected wndB to be at index 1, got %v", wB)
-	}
-
-	// Test FindPrimitive
-	wA = wm.FindPrimitive(rootA)
-	if wA != wndA {
-		t.Fatalf("Expected wndA to be found when looking for rootA, got %v", wA)
-	}
-
-	wB = wm.FindPrimitive(rootB)
-	if wB != wndB {
-		t.Fatalf("Expected wndB to be found when looking for rootB, got %v", wA)
-	}
-
-	wnd := wm.FindPrimitive(NewBoringPrimitive('#'))
-	if wnd != nil {
-		t.Fatalf("Expected no window to be found when looking for a primitive that was not set as root for any window, got %v", wnd)
 	}
 
 	//Test Focus
@@ -140,22 +108,20 @@ func TestWindowManager(t *testing.T) {
 func TestWindowManagerSetZ(t *testing.T) {
 	wm := winman.NewWindowManager()
 
-	var w []*winman.Window
+	var w []*winman.WindowBase
 	// add some windows
 	for i := 0; i < 10; i++ {
-		wnd := wm.NewWindow()
-		wnd.SetTitle(fmt.Sprintf("%d", i)) // save our "window id" for the test in the title
+		wnd := winman.NewWindow()
 		wm.Show(wnd)
 		w = append(w, wnd)
 	}
 
 	// Check that the z index of each window equals the window id
 	// given in the test
-	for i := 0; i < wm.WindowCount(); i++ {
-		wnd := wm.Window(i)
-		id, _ := strconv.Atoi(wnd.GetTitle())
-		if id != i {
-			t.Fatalf("Expected window with id %d to have z index %d, got %d", id, id, i)
+	for i, wnd := range w {
+		z := wm.GetZ(wnd)
+		if z != i {
+			t.Fatalf("Expected window with id %d to have z index %d, got %d", i, i, z)
 		}
 	}
 
@@ -245,9 +211,10 @@ var WMDrawTests = []WMDrawTest{
 
 func TestWindowManagerDraw(t *testing.T) {
 	wm := winman.NewWindowManager()
-	var w []*winman.Window
+	var w []*winman.WindowBase
 	for _, wt := range WMDrawTests {
-		wnd := wm.NewWindow().Show() // add new window to wm
+		wnd := winman.NewWindow() // add new window to wm
+		wm.Show(wnd)
 		wnd.SetRect(wt.i.x, wt.i.y, wt.i.w, wt.i.h)
 		if wt.maximized {
 			wnd.Maximize()

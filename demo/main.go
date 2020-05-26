@@ -9,7 +9,7 @@ import (
 	"github.com/rivo/tview"
 )
 
-func calculator() *winman.Window {
+func calculator(wm *winman.Manager) winman.Window {
 
 	value := []float64{0.0, 0.0}
 	i := 0
@@ -91,7 +91,7 @@ func calculator() *winman.Window {
 	wnd.AddButton(&winman.Button{
 		Symbol:       'X',
 		Alignment:    winman.ButtonLeft,
-		ClickHandler: func() { wnd.Hide() },
+		ClickHandler: func() { wm.Hide(wnd) },
 	})
 	wnd.SetRect(0, 0, 30, 15)
 	wnd.Draggable = true
@@ -116,7 +116,7 @@ func main() {
 	modalWindow.SetRect(4, 2, 30, 6)
 	modalWindow.Draggable = true
 
-	var createForm func() *winman.Window
+	var createForm func() winman.Window
 	var counter = 0
 
 	setFocus := func(p tview.Primitive) {
@@ -125,7 +125,7 @@ func main() {
 		})
 	}
 
-	setZ := func(wnd *winman.Window, newZ int) {
+	setZ := func(wnd *winman.WindowBase, newZ int) {
 		go app.QueueUpdateDraw(func() {
 			newTopWindow := wm.Window(wm.WindowCount() - 2)
 			if newTopWindow != nil {
@@ -135,10 +135,10 @@ func main() {
 		})
 	}
 
-	createForm = func() *winman.Window {
+	createForm = func() winman.Window {
 		counter++
 		form := tview.NewForm()
-		window := wm.NewWindow().SetRoot(form)
+		window := winman.NewWindow().SetRoot(form)
 		window.Draggable = true
 		window.Resizable = true
 
@@ -163,19 +163,22 @@ func main() {
 				setZ(window, z)
 			}).
 			AddButton("New", func() {
-				newWnd := createForm().Show()
+				newWnd := createForm()
+				wm.Show(newWnd)
 				setFocus(newWnd)
 			}).
 			AddButton("Modal", func() {
-				setFocus(createForm().ShowModal())
+				newWnd := createForm()
+				wm.ShowModal(newWnd)
+				setFocus(newWnd)
 			}).
 			AddButton("Save", func() {
-				setFocus(modalWindow.ShowModal().Center())
+				wm.ShowModal(modalWindow).Center(modalWindow)
+				setFocus(modalWindow)
 			}).
 			AddButton("Calc", func() {
-				calc := calculator()
-				wm.Show(calc)
-				calc.Center()
+				calc := calculator(wm)
+				wm.Show(calc).Center(calc)
 				setFocus(calc)
 			}).
 			AddButton("Quit", func() {
@@ -189,7 +192,7 @@ func main() {
 			Symbol:    'X',
 			Alignment: winman.ButtonLeft,
 			ClickHandler: func() {
-				window.Hide()
+				wm.Hide(window)
 				setFocus(wm)
 			},
 		})
@@ -208,7 +211,7 @@ func main() {
 			},
 		}
 		window.AddButton(maxMinButton)
-		window.Show()
+		wm.Show(window)
 		return window
 	}
 

@@ -1,8 +1,8 @@
 package winman
 
-type Stack []*Window
+type Stack []*WindowBase
 
-func (ws Stack) Push(window *Window) {
+func (ws Stack) Push(window *WindowBase) {
 	for _, wnd := range ws {
 		if wnd == window {
 			return
@@ -11,17 +11,17 @@ func (ws Stack) Push(window *Window) {
 	ws = append(ws, window)
 }
 
-func (ws Stack) Pop() *Window {
+func (ws Stack) Pop() *WindowBase {
 	lenWs := len(ws)
 	if lenWs == 0 {
 		return nil
 	}
-	var wnd *Window
+	var wnd *WindowBase
 	wnd, ws = ws[lenWs-1], ws[:lenWs-1]
 	return wnd
 }
 
-func (ws Stack) Remove(window *Window) {
+func (ws Stack) Remove(window *WindowBase) {
 	for i, wnd := range ws {
 		if wnd == window {
 			ws = append(ws[:i], ws[i+1:]...)
@@ -30,7 +30,7 @@ func (ws Stack) Remove(window *Window) {
 	}
 }
 
-func (ws Stack) Index(window *Window) int {
+func (ws Stack) Index(window *WindowBase) int {
 	for i, wnd := range ws {
 		if wnd == window {
 			return i
@@ -39,7 +39,7 @@ func (ws Stack) Index(window *Window) int {
 	return -1
 }
 
-func (ws Stack) Move(window *Window, targetIndex int) {
+func (ws Stack) Move(window *WindowBase, targetIndex int) {
 	oldIndex := ws.Index(window)
 	lenW := len(ws)
 	if oldIndex == -1 {
@@ -50,7 +50,7 @@ func (ws Stack) Move(window *Window, targetIndex int) {
 		targetIndex = lenW - 1
 	}
 
-	newWindows := make([]*Window, lenW)
+	newWindows := make([]*WindowBase, lenW)
 	for i, j := 0, 0; i < lenW; j++ {
 		if j == oldIndex {
 			j++
@@ -67,7 +67,7 @@ func (ws Stack) Move(window *Window, targetIndex int) {
 	ws = newWindows
 }
 
-func (ws Stack) Find(f func(window *Window) bool) *Window {
+func (ws Stack) Find(f func(window *WindowBase) bool) *WindowBase {
 	for i := len(ws) - 1; i >= 0; i-- {
 		wnd := ws[i]
 		if f(wnd) {
@@ -77,8 +77,8 @@ func (ws Stack) Find(f func(window *Window) bool) *Window {
 	return nil
 }
 
-func (ws Stack) Modal() *Window {
-	return ws.Find(func(wnd *Window) bool {
+func (ws Stack) Modal() *WindowBase {
+	return ws.Find(func(wnd *WindowBase) bool {
 		return wnd.modal
 	})
 }
