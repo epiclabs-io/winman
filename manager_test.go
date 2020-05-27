@@ -9,25 +9,27 @@ import (
 	"github.com/rivo/tview"
 )
 
-func Focuser() (*tview.Primitive, func(tview.Primitive)) {
-	var focusedPrimitive tview.Primitive
+func Focuser(focusedPrimitive *tview.Primitive) func(tview.Primitive) {
 	var setFocus func(tview.Primitive)
 	setFocus = func(p tview.Primitive) {
 
-		if focusedPrimitive != nil {
-			focusedPrimitive.Blur()
+		if *focusedPrimitive != nil {
+			(*focusedPrimitive).Blur()
 		}
-		focusedPrimitive = p
+		*focusedPrimitive = p
 		if p != nil {
 			p.Focus(func(p tview.Primitive) {
 				setFocus(p)
 			})
 		}
 	}
-	return &focusedPrimitive, setFocus
+	return setFocus
 }
 
-func TestWindowManager(t *testing.T) {
+func TestWindowManagerFocus(t *testing.T) {
+	var focusedPrimitive tview.Primitive
+	setFocus := Focuser(&focusedPrimitive)
+
 	wm := winman.NewWindowManager()
 	wndA := winman.NewWindow()
 	r := wndA.GetRoot()
@@ -119,7 +121,7 @@ func TestWindowManager(t *testing.T) {
 	//Focusing on the window manager must forward the focus to the window
 	// with highest z index that is visible, however both windows are hidden
 
-	wm.Focus(delegate)
+	setFocus(wm)
 
 	if wndA.HasFocus() || wndB.HasFocus() {
 		t.Fatal("Expected no window to get focus, since both are hidden")
@@ -129,23 +131,37 @@ func TestWindowManager(t *testing.T) {
 
 	// now show wndB and try again
 	wndB.Show()
-	wm.Focus(delegate)
+	setFocus(wm)
 	if !wndB.HasFocus() {
 		t.Fatal("Expected wndB to have focus")
 	}
 
 	// now show wndC and have wm choose it as it is got higher Z
 	wndC.Show()
-	wm.Focus(delegate)
+	setFocus(wm)
 	if !wndC.HasFocus() {
 		t.Fatal("Expected wndC to have focus")
 	}
+	if wndB.HasFocus() {
+		t.Fatal("Expected wndB to not have focus")
+	}
 
-	// Since wndA has focus, then the Window Manager must have focus
+	// Since wndC has focus, then the Window Manager must have focus
 	hasFocus = wm.HasFocus()
 	if !hasFocus {
 		t.Fatal("Expected Window Manager to have focus")
 	}
+
+	// if we hide wndC, then wndB should get the focus again
+	wndC.Hide()
+	setFocus(wm)
+	if wndC.HasFocus() {
+		t.Fatal("Expected wndC to not have focus")
+	}
+	if !wndB.HasFocus() {
+		t.Fatal("Expected wndB to  have focus")
+	}
+
 }
 
 func TestWindowManagerSetZ(t *testing.T) {
@@ -396,22 +412,9 @@ func TestWindowManagerMouse(t *testing.T) {
 	}
 
 	var clickedId int
-	//	var focusedId int
-	var focusedPrimitive tview.Primitive
 	var windows []*winman.WindowBase
-	var setFocus func(tview.Primitive)
-	setFocus = func(p tview.Primitive) {
-
-		if focusedPrimitive != nil {
-			focusedPrimitive.Blur()
-		}
-		focusedPrimitive = p
-		if p != nil {
-			p.Focus(func(p tview.Primitive) {
-				setFocus(p)
-			})
-		}
-	}
+	var focusedPrimitive tview.Primitive
+	setFocus := Focuser(&focusedPrimitive)
 
 	for id, tw := range testWindowRects {
 		wnd := wm.NewWindow()
@@ -527,6 +530,70 @@ func TestMaximizeRestore(t *testing.T) {
 	restoredRect := NewRect(wndA.GetRect())
 	if restoredRect != initialRect {
 		t.Fatalf("Expected wndA restored rect to be the initial rect %s, got %s", initialRect, restoredRect)
+	}
+
+}
+
+func TestModal(t *testing.T) {
+	wm := winman.NewWindowManager()
+	wm.SetRect(0, 0, 100, 100)
+	screen := tcell.NewSimulationScreen("UTF-8")
+	screen.SetSize(100, 100)
+	screen.Init()
+	handler := wm.MouseHandler()
+	var focusedPrimitive tview.Primitive
+	setFocus := Focuser(&focusedPrimitive)
+
+	// define 10 windows
+	clicked := make([]bool, 10)
+	for i := 0; i < 10; i++ {
+		wnd := wm.NewWindow()
+		wnd.SetRect(i*10, 0, 10, 10)
+		wnd.Show()
+		func(i int) {
+			wnd.SetMouseCapture(func(action tview.MouseAction, event *tcell.EventMouse) (tview.MouseAction, *tcell.EventMouse) {
+				clicked[i] = true
+				return action, event
+			})
+		}(i)
+	}
+
+	for i := 0; i < 10; i++ {
+		handler(tview.MouseLeftClick, tcell.NewEventMouse(i*10, 0, tcell.Button1, tcell.ModNone), setFocus)
+	}
+
+	count := 0
+	for i := 0; i < 10; i++ {
+		if clicked[i] {
+			count++
+		}
+	}
+
+	if count != 10 {
+		t.Fatalf("Expected each window to have been clicked, got only %d clicks", count)
+	}
+
+	// now mark window 4 as modal.
+	// only window 4 should get clicks
+	w4 := wm.Window(4)
+	w4.SetModal(true)
+	setFocus(w4)
+	wm.Draw(screen)
+
+	clicked = make([]bool, 10)
+	for i := 0; i < 10; i++ {
+		handler(tview.MouseLeftClick, tcell.NewEventMouse(i*10, 0, tcell.Button1, tcell.ModNone), setFocus)
+	}
+
+	count = 0
+	for i := 0; i < 10; i++ {
+		if clicked[i] {
+			count++
+		}
+	}
+
+	if count != 1 || !clicked[4] {
+		t.Fatalf("Expected only window 4 to have been clicked. Got %d clicks", count)
 	}
 
 }

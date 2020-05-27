@@ -143,9 +143,9 @@ func (w *WindowBase) Restore() *WindowBase {
 // Focus is called when this primitive receives focus.
 func (w *WindowBase) Focus(delegate func(p tview.Primitive)) {
 	if w.root != nil {
-		w.root.Focus(delegate)
+		delegate(w.root)
 	} else {
-		w.Box.Focus(delegate)
+		delegate(w.Box)
 	}
 	w.Visible = true
 }

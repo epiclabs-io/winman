@@ -246,3 +246,18 @@ func TestFocusDelegation(t *testing.T) {
 	}
 
 }
+
+func TestWindowSettings(t *testing.T) {
+	wndA := winman.NewWindow()
+
+	if wndA.IsModal() {
+		t.Fatal("Expected window to be non-modal by default")
+	}
+
+	wndA.SetModal(true)
+
+	if !wndA.IsModal() {
+		t.Fatal("Expected window to be modal after setting modal to true")
+	}
+
+}
