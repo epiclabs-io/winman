@@ -9,7 +9,7 @@ import (
 	"github.com/rivo/tview"
 )
 
-func calculator(wm *winman.Manager) winman.Window {
+func calculator(wm *winman.Manager) *winman.WindowBase {
 
 	value := []float64{0.0, 0.0}
 	i := 0
@@ -91,7 +91,7 @@ func calculator(wm *winman.Manager) winman.Window {
 	wnd.AddButton(&winman.Button{
 		Symbol:       'X',
 		Alignment:    winman.ButtonLeft,
-		ClickHandler: func() { wm.Hide(wnd) },
+		ClickHandler: func() { wm.RemoveWindow(wnd) },
 	})
 	wnd.SetRect(0, 0, 30, 15)
 	wnd.Draggable = true
@@ -110,13 +110,15 @@ func main() {
 		SetDirection(tview.FlexRow).
 		AddItem(modalWindowMessage, 0, 1, false)
 	modalWindow := winman.NewWindow().SetRoot(modalWindowContent)
-	modalWindowButton := tview.NewButton("OK").SetSelectedFunc(func() { wm.Hide(modalWindow) })
+	modalWindowButton := tview.NewButton("OK").SetSelectedFunc(func() { modalWindow.Hide() })
 	modalWindowContent.AddItem(modalWindowButton, 1, 0, true)
 	modalWindow.SetTitle("Confirmation")
 	modalWindow.SetRect(4, 2, 30, 6)
 	modalWindow.Draggable = true
+	modalWindow.Modal = true
+	wm.AddWindow(modalWindow)
 
-	var createForm func() winman.Window
+	var createForm func(modal bool) *winman.WindowBase
 	var counter = 0
 
 	setFocus := func(p tview.Primitive) {
@@ -135,12 +137,13 @@ func main() {
 		})
 	}
 
-	createForm = func() winman.Window {
+	createForm = func(modal bool) *winman.WindowBase {
 		counter++
 		form := tview.NewForm()
 		window := winman.NewWindow().SetRoot(form)
 		window.Draggable = true
 		window.Resizable = true
+		window.Modal = modal
 
 		form.AddDropDown("Title", []string{"Mr.", "Ms.", "Mrs.", "Dr.", "Prof."}, 0, nil).
 			AddInputField("First name", "", 20, nil, nil).
@@ -150,6 +153,9 @@ func main() {
 			}).
 			AddCheckbox("Resizable", window.Draggable, func(checked bool) {
 				window.Resizable = checked
+			}).
+			AddCheckbox("Modal", window.Modal, func(checked bool) {
+				window.Modal = checked
 			}).
 			AddCheckbox("Border", window.Draggable, func(checked bool) {
 				window.SetBorder(checked)
@@ -163,22 +169,24 @@ func main() {
 				setZ(window, z)
 			}).
 			AddButton("New", func() {
-				newWnd := createForm()
-				wm.Show(newWnd)
+				newWnd := createForm(false).Show()
+				wm.AddWindow(newWnd)
 				setFocus(newWnd)
 			}).
 			AddButton("Modal", func() {
-				newWnd := createForm()
-				wm.ShowModal(newWnd)
+				newWnd := createForm(true).Show()
+				newWnd.Modal = true
+				wm.AddWindow(newWnd)
 				setFocus(newWnd)
 			}).
 			AddButton("Save", func() {
-				wm.ShowModal(modalWindow).Center(modalWindow)
+				wm.Center(modalWindow)
+				modalWindow.Show()
 				setFocus(modalWindow)
 			}).
 			AddButton("Calc", func() {
-				calc := calculator(wm)
-				wm.Show(calc).Center(calc)
+				calc := calculator(wm).Show()
+				wm.AddWindow(calc).Center(calc)
 				setFocus(calc)
 			}).
 			AddButton("Quit", func() {
@@ -192,7 +200,7 @@ func main() {
 			Symbol:    'X',
 			Alignment: winman.ButtonLeft,
 			ClickHandler: func() {
-				wm.Hide(window)
+				wm.RemoveWindow(window)
 				setFocus(wm)
 			},
 		})
@@ -211,12 +219,12 @@ func main() {
 			},
 		}
 		window.AddButton(maxMinButton)
-		wm.Show(window)
+		wm.AddWindow(window)
 		return window
 	}
 
-	for i := 0; i < 10; i++ {
-		createForm()
+	for i := 0; i < 1; i++ {
+		createForm(false).Show()
 	}
 
 	if err := app.SetRoot(wm, true).EnableMouse(true).Run(); err != nil {

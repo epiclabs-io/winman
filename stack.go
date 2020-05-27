@@ -79,6 +79,6 @@ func (ws Stack) Find(f func(window *WindowBase) bool) *WindowBase {
 
 func (ws Stack) Modal() *WindowBase {
 	return ws.Find(func(wnd *WindowBase) bool {
-		return wnd.modal
+		return wnd.Modal
 	})
 }

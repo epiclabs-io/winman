@@ -6,7 +6,26 @@ import (
 
 	"github.com/epiclabs-io/winman"
 	"github.com/gdamore/tcell"
+	"github.com/rivo/tview"
 )
+
+func Focuser() (*tview.Primitive, func(tview.Primitive)) {
+	var focusedPrimitive tview.Primitive
+	var setFocus func(tview.Primitive)
+	setFocus = func(p tview.Primitive) {
+
+		if focusedPrimitive != nil {
+			focusedPrimitive.Blur()
+		}
+		focusedPrimitive = p
+		if p != nil {
+			p.Focus(func(p tview.Primitive) {
+				setFocus(p)
+			})
+		}
+	}
+	return &focusedPrimitive, setFocus
+}
 
 func TestWindowManager(t *testing.T) {
 	wm := winman.NewWindowManager()
@@ -32,30 +51,30 @@ func TestWindowManager(t *testing.T) {
 		t.Fatalf("Expected Window Manager to have 0 windows when initialized, got %d", windowCount)
 	}
 
-	// Test Show and Hide
-	wm.Show(wndA) // show window in window manager
+	// Test add and remove
+	wm.AddWindow(wndA)
 	windowCount = wm.WindowCount()
 
 	if windowCount != 1 {
 		t.Fatalf("Expected Window Manager to have 1 window after adding 1 window, got %d", windowCount)
 	}
 
-	wm.Show(wndA) // show the same window
+	wm.AddWindow(wndA) // add the same window
 	windowCount = wm.WindowCount()
 	if windowCount != 1 {
 		t.Fatalf("Expected Window Manager to still have 1 window after adding the same window, got %d", windowCount)
 	}
 
-	wm.Hide(wndA)
+	wm.RemoveWindow(wndA)
 	windowCount = wm.WindowCount()
 	if windowCount != 0 {
 		t.Fatalf("Expected Window Manager to have no windows after hiding the only window, got %d", windowCount)
 	}
 
 	// Test Z index get/set
-	wm.Show(wndA) // show wndA again, should get z index 0
+	wm.AddWindow(wndA) // add wndA again, should get z index 0
 	wndB := winman.NewWindow().SetRoot(rootB)
-	wm.Show(wndB) // show wndB, should get z index 1 since it was shown later
+	wm.AddWindow(wndB) // add wndB, should get z index 1 since it was added later
 
 	z := wm.GetZ(wndA)
 	if z != 0 {
@@ -78,6 +97,15 @@ func TestWindowManager(t *testing.T) {
 		t.Fatalf("Expected wndB to be at index 1, got %v", wB)
 	}
 
+	wX := wm.Window(-1)
+	if wX != nil {
+		t.Fatalf("Expected no window be returned with a negative index, got %v", wX)
+	}
+
+	wX = wm.Window(1000)
+	if wX != nil {
+		t.Fatalf("Expected no window be returned with an out of bounds index, got %v", wX)
+	}
 	//Test Focus
 
 	// Since we did not give focus to any window, then the
@@ -89,16 +117,31 @@ func TestWindowManager(t *testing.T) {
 	}
 
 	//Focusing on the window manager must forward the focus to the window
-	// with highest z index (wndB)
+	// with highest z index that is visible, however both windows are hidden
+
+	wm.Focus(delegate)
+
+	if wndA.HasFocus() || wndB.HasFocus() {
+		t.Fatal("Expected no window to get focus, since both are hidden")
+	}
+
+	wndC := wm.NewWindow() // add a third window which now will have highest z index, but it is hidden
+
+	// now show wndB and try again
+	wndB.Show()
 	wm.Focus(delegate)
 	if !wndB.HasFocus() {
 		t.Fatal("Expected wndB to have focus")
 	}
-	if wndA.HasFocus() {
-		t.Fatal("Expected wndA to not have focus")
+
+	// now show wndC and have wm choose it as it is got higher Z
+	wndC.Show()
+	wm.Focus(delegate)
+	if !wndC.HasFocus() {
+		t.Fatal("Expected wndC to have focus")
 	}
 
-	// Since wndB has focus, then the Window Manager must have focus
+	// Since wndA has focus, then the Window Manager must have focus
 	hasFocus = wm.HasFocus()
 	if !hasFocus {
 		t.Fatal("Expected Window Manager to have focus")
@@ -108,17 +151,17 @@ func TestWindowManager(t *testing.T) {
 func TestWindowManagerSetZ(t *testing.T) {
 	wm := winman.NewWindowManager()
 
-	var w []*winman.WindowBase
+	var windows []*winman.WindowBase
 	// add some windows
 	for i := 0; i < 10; i++ {
 		wnd := winman.NewWindow()
-		wm.Show(wnd)
-		w = append(w, wnd)
+		wm.AddWindow(wnd)
+		windows = append(windows, wnd)
 	}
 
 	// Check that the z index of each window equals the window id
 	// given in the test
-	for i, wnd := range w {
+	for i, wnd := range windows {
 		z := wm.GetZ(wnd)
 		if z != i {
 			t.Fatalf("Expected window with id %d to have z index %d, got %d", i, i, z)
@@ -126,37 +169,37 @@ func TestWindowManagerSetZ(t *testing.T) {
 	}
 
 	// Move Window 0 to the top:
-	wm.SetZ(w[0], winman.WindowZTop)
-	// w[0] must now have z index of the top (len(w)-1)
-	z := wm.GetZ(w[0])
+	wm.SetZ(windows[0], winman.WindowZTop)
+	// windows[0] must now have z index of the top (len(w)-1)
+	z := wm.GetZ(windows[0])
 	if z != wm.WindowCount()-1 {
-		t.Fatalf("Expected w[0] to have z index %d, got %d", wm.WindowCount()-1, z)
+		t.Fatalf("Expected windows[0] to have z index %d, got %d", wm.WindowCount()-1, z)
 	}
 
 	// Move Window 3 to index 7:
-	wm.SetZ(w[3], 7)
-	// w[3] must now have z index 7
-	z = wm.GetZ(w[3])
+	wm.SetZ(windows[3], 7)
+	// windows[3] must now have z index 7
+	z = wm.GetZ(windows[3])
 	if z != 7 {
-		t.Fatalf("Expected w[3] to have z index 7, got %d", z)
+		t.Fatalf("Expected windows[3] to have z index 7, got %d", z)
 	}
 
 	// Move Window 5 to the bottom:
-	wm.SetZ(w[5], winman.WindowZBottom)
-	// w[5] must now have z index of the bottom (0)
-	z = wm.GetZ(w[5])
+	wm.SetZ(windows[5], winman.WindowZBottom)
+	// windows[5] must now have z index of the bottom (0)
+	z = wm.GetZ(windows[5])
 	if z != 0 {
-		t.Fatalf("Expected w[5] to have z index 0, got %d", z)
+		t.Fatalf("Expected windows[5] to have z index 0, got %d", z)
 	}
 
 	// the final z indices for all windows should be:
 	indices := []int{9, 1, 2, 7, 3, 0, 4, 5, 6, 8}
 
 	verifyIndices := func() {
-		for i, wnd := range w {
+		for i, wnd := range windows {
 			z = wm.GetZ(wnd)
 			if z != indices[i] {
-				t.Fatalf("Expected w[%d]'s z index to be %d, got %d", i, indices[i], z)
+				t.Fatalf("Expected windows[%d]'s z index to be %d, got %d", i, indices[i], z)
 			}
 		}
 	}
@@ -187,7 +230,7 @@ func (r Rect) String() string {
 }
 
 type WMDrawTest struct {
-	i         Rect // initial Rect
+	initial   Rect // initial Rect
 	expected  Rect // expected Rect after drawing
 	maximized bool
 }
@@ -211,42 +254,279 @@ var WMDrawTests = []WMDrawTest{
 
 func TestWindowManagerDraw(t *testing.T) {
 	wm := winman.NewWindowManager()
-	var w []*winman.WindowBase
+	var windows []*winman.WindowBase
 	for _, wt := range WMDrawTests {
-		wnd := winman.NewWindow() // add new window to wm
-		wm.Show(wnd)
-		wnd.SetRect(wt.i.x, wt.i.y, wt.i.w, wt.i.h)
+		wnd := winman.NewWindow() // create a new window. Windows are not visible by default.
+		wm.AddWindow(wnd)         // add new window to wm.
+		wnd.SetRect(wt.initial.x, wt.initial.y, wt.initial.w, wt.initial.h)
 		if wt.maximized {
 			wnd.Maximize()
 		}
-		w = append(w, wnd)
+		windows = append(windows, wnd)
 	}
 
-	// give focus to some window
-	focusedWindow := w[3]
-	focusedWindow.Focus(delegate)
+	// Add an additional window to test that
+	// giving it focus will move it to the top.
+	var testWindow winman.Window = wm.NewWindow()
+
+	wm.SetZ(testWindow, 3)
+	z := wm.GetZ(testWindow)
+	if z != 3 {
+		t.Fatalf("Expected testWindow to have z 3, got %d", z)
+	}
+
+	// actually set the focus to this window
+	// This will also make it visible.
+	testWindow.Focus(delegate)
 
 	screen := tcell.NewSimulationScreen("UTF-8")
 	screenW, screenH := 20, 20
 	screen.SetSize(screenH, screenW)
 	screen.Init()
-	//	sm := &ScreenMonitor{screen: screen}
 	wm.SetRect(0, 0, screenW, screenH)
 
 	// Draw
 	wm.Draw(screen)
 
 	// check that the focused window got the highest Z after drawing
-	z := wm.GetZ(focusedWindow)
+	z = wm.GetZ(testWindow)
 	if z != wm.WindowCount()-1 {
-		t.Fatalf("Expected the focused window to have highes z %d, got %d", wm.WindowCount()-1, z)
+		t.Fatalf("Expected the focused window to have highest z %d, got %d", wm.WindowCount()-1, z)
 	}
 
-	for i := 0; i < wm.WindowCount(); i++ {
-		rect := NewRect(w[i].GetRect())
+	// remove the test Window
+	wm.RemoveWindow(testWindow)
+
+	// check that only the WMDrawTests windows remain
+	expectedCount := len(windows)
+	actualCount := wm.WindowCount()
+	if actualCount != expectedCount {
+		t.Fatalf("Expected window manager to only contain %d windows, got %d", expectedCount, actualCount)
+	}
+
+	// since WMDrawTests are not visible, their Rects should be the original ones.
+	// Draw() must not adjust hidden windows.
+	for i, wnd := range windows {
+		rect := NewRect(wnd.GetRect())
+		expectedRect := WMDrawTests[i].initial
+		if rect != expectedRect {
+			t.Fatalf("Expected window in test %d to have rect %s, got %s", i, expectedRect, rect)
+		}
+	}
+
+	// now make all windows visible:
+	for _, wnd := range windows {
+		wnd.Show()
+	}
+
+	// Now draw again and check if window rects were adjusted to fit:
+	wm.Draw(screen)
+	for i, wnd := range windows {
+		rect := NewRect(wnd.GetRect())
 		expectedRect := WMDrawTests[i].expected
 		if rect != expectedRect {
 			t.Fatalf("Expected window in test %d to have rect %s, got %s", i, expectedRect, rect)
 		}
 	}
+}
+
+type TestMouseWindow struct {
+	initial   Rect
+	final     Rect
+	visible   bool
+	border    bool
+	draggable bool
+	resizable bool
+}
+
+type ClickTest struct {
+	pos         Position
+	action      tview.MouseAction
+	expectedWnd int // expected index in testWindowRects of the window where interactions should be forwarded to
+	expectFocus bool
+}
+
+func TestWindowManagerMouse(t *testing.T) {
+	wm := winman.NewWindowManager()
+	wm.SetRect(0, 0, 20, 20)
+	screen := tcell.NewSimulationScreen("UTF-8")
+	screen.SetSize(20, 20)
+	screen.Init()
+
+	testWindowRects := []TestMouseWindow{
+		{Rect{2, 2, 5, 5}, Rect{0, 2, 20, 18}, true, true, true, true},      // window 0, behind window 1
+		{Rect{0, 0, 12, 12}, Rect{0, 0, 14, 17}, true, true, true, true},    // window 1, behind window 2, overlapping in the bottom right
+		{Rect{8, 8, 12, 12}, Rect{8, 8, 12, 12}, true, false, false, false}, // window 2, on top, overlapping on the top left with window 1
+		{Rect{0, 15, 5, 5}, Rect{0, 15, 5, 5}, false, false, false, false},  //window 3, hidden, should not receive events
+	}
+
+	testClicks := []ClickTest{
+		{Position{2, 2}, tview.MouseMove, 1, false},        // see if #1 receives mouse
+		{Position{0, 19}, tview.MouseMove, -1, false},      // see if no window receives mouse. This is over #3, but it is hidden
+		{Position{19, 0}, tview.MouseMove, -1, false},      // see if now window receives mouse. No windows here.
+		{Position{10, 10}, tview.MouseMove, 2, false},      // click the overlap area of #1 and #2. #2 should receive it since it is on top
+		{Position{2, 2}, tview.MouseLeftClick, 1, true},    // click on window #1, should go to the top and get focus
+		{Position{10, 10}, tview.MouseMove, 1, true},       // clicking the overlap area now should go to  #1
+		{Position{3, 0}, tview.MouseLeftDown, -1, true},    // begin drag on window #1
+		{Position{8, 0}, tview.MouseMove, -1, true},        // move window #1 to the right
+		{Position{8, 0}, tview.MouseLeftUp, 1, true},       // finish dragging #1
+		{Position{2, 2}, tview.MouseLeftClick, 0, true},    // click now goes to window #0, which was behind #1 before dragging
+		{Position{18, 18}, tview.MouseLeftClick, 2, true},  //click to #2, should get focus
+		{Position{10, 8}, tview.MouseLeftDown, 2, true},    // begin drag on window #2
+		{Position{0, 8}, tview.MouseMove, -1, false},       // move window #2 to the left. However, #2 is not draggable so this does nothing
+		{Position{0, 8}, tview.MouseLeftUp, -1, false},     // finish drag operation, however we didn't really drag
+		{Position{0, 17}, tview.MouseLeftClick, -1, false}, // see if no window receives mouse. This is over #3, but it is hidden. If #2 was dragged, then it would receive the click instead
+		{Position{2, 2}, tview.MouseLeftClick, 0, true},    // click #0 to have it get focus.
+		{Position{2, 4}, tview.MouseLeftDown, -1, true},    // begin resize on left border of window #0
+		{Position{0, 4}, tview.MouseMove, -1, true},        // drag left border all the way to the left
+		{Position{0, 4}, tview.MouseLeftUp, 0, false},      // finish dragging left border
+		{Position{6, 4}, tview.MouseLeftDown, -1, true},    // begin resize on right border of window #0
+		{Position{19, 4}, tview.MouseMove, -1, true},       // drag right border all the way to the right
+		{Position{19, 4}, tview.MouseLeftUp, 0, false},     // finish dragging right border
+		{Position{4, 6}, tview.MouseLeftDown, -1, true},    // begin resize on bottom border of window #0
+		{Position{4, 19}, tview.MouseMove, -1, true},       // drag bottom border all the way to the bottom
+		{Position{4, 19}, tview.MouseLeftUp, 0, false},     // finish dragging bottom border
+		{Position{6, 1}, tview.MouseLeftClick, 1, true},    // click #1 to have it get focus.
+		{Position{5, 11}, tview.MouseLeftDown, -1, true},   // begin resize on bottom left border of window #1
+		{Position{0, 19}, tview.MouseMove, -1, true},       // drag bottom left corner all the way to the bottom left corner of the screen
+		{Position{0, 19}, tview.MouseLeftUp, 1, false},     // finish dragging bottom border
+		{Position{16, 19}, tview.MouseLeftDown, -1, true},  // begin resize on bottom right border of window #1
+		{Position{13, 16}, tview.MouseMove, -1, true},      // drag bottom right corner 3 units up and 3 units left
+		{Position{13, 16}, tview.MouseLeftUp, 1, false},    // finish dragging bottom right corner of #1
+	}
+
+	var clickedId int
+	//	var focusedId int
+	var focusedPrimitive tview.Primitive
+	var windows []*winman.WindowBase
+	var setFocus func(tview.Primitive)
+	setFocus = func(p tview.Primitive) {
+
+		if focusedPrimitive != nil {
+			focusedPrimitive.Blur()
+		}
+		focusedPrimitive = p
+		if p != nil {
+			p.Focus(func(p tview.Primitive) {
+				setFocus(p)
+			})
+		}
+	}
+
+	for id, tw := range testWindowRects {
+		wnd := wm.NewWindow()
+		wnd.SetRect(tw.initial.x, tw.initial.y, tw.initial.w, tw.initial.h)
+		if tw.visible {
+			wnd.Show()
+		}
+		wnd.Draggable = tw.draggable
+		wnd.Resizable = tw.resizable
+		wnd.SetBorder(tw.border)
+		func(id int) {
+			wnd.SetMouseCapture(func(action tview.MouseAction, event *tcell.EventMouse) (tview.MouseAction, *tcell.EventMouse) {
+				clickedId = id
+				return action, event
+			})
+		}(id)
+		windows = append(windows, wnd)
+	}
+
+	handler := wm.MouseHandler()
+	for testId, click := range testClicks {
+		wm.Draw(screen)
+		clickedId = -1
+		handler(click.action, tcell.NewEventMouse(click.pos.x, click.pos.y, tcell.Button1, tcell.ModNone), setFocus)
+
+		if clickedId != click.expectedWnd {
+			var expectedStr string
+			if click.expectedWnd == -1 {
+				expectedStr = "no window"
+			} else {
+				expectedStr = fmt.Sprintf("window with id %d", click.expectedWnd)
+			}
+			t.Fatalf("click test #%d: Expected %s to receive event, got %d", testId, expectedStr, clickedId)
+		}
+
+		if clickedId == -1 {
+			continue
+		}
+
+		wnd := windows[clickedId]
+		if wnd == nil {
+			t.Fatalf("click test #%d: cannot find window with id %d", testId, clickedId)
+		}
+
+		if click.expectFocus && !wnd.HasFocus() {
+			t.Fatalf("click test #%d: Expected window with id %d to have focus as a result of the click", testId, clickedId)
+		}
+	}
+
+	for i, wnd := range windows {
+		finalRect := NewRect(wnd.GetRect())
+		if finalRect != testWindowRects[i].final {
+			t.Fatalf("Expected window #%d to have a final rect of %s, got %s", i, testWindowRects[i].final, finalRect)
+		}
+	}
+}
+
+type TestCenterWindow struct {
+	initial Rect
+	final   Rect
+}
+
+func TestCenter(t *testing.T) {
+	wm := winman.NewWindowManager()
+	wm.SetRect(0, 0, 20, 20)
+
+	testWindowRects := []TestCenterWindow{
+		{Rect{2, 2, 5, 5}, Rect{7, 7, 5, 5}},
+		{Rect{0, 0, 4, 12}, Rect{8, 4, 4, 12}},
+		{Rect{8, 8, 12, 9}, Rect{4, 5, 12, 9}},
+		{Rect{0, 15, 2, 5}, Rect{9, 7, 2, 5}},
+	}
+
+	for i, tw := range testWindowRects {
+		wnd := wm.NewWindow()
+		wnd.SetRect(tw.initial.x, tw.initial.y, tw.initial.w, tw.initial.h)
+		wm.Center(wnd)
+		finalRect := NewRect(wnd.GetRect())
+		if finalRect != tw.final {
+			t.Fatalf("Expected window #%d to have a final rect of %s, got %s", i, tw.final, finalRect)
+		}
+	}
+
+}
+
+func TestMaximizeRestore(t *testing.T) {
+	wm := winman.NewWindowManager()
+	wm.SetRect(0, 0, 20, 20)
+
+	screen := tcell.NewSimulationScreen("UTF-8")
+	screen.SetSize(20, 20)
+	screen.Init()
+
+	initialRect := NewRect(1, 2, 5, 9)
+
+	wndA := wm.NewWindow()
+	wndA.SetRect(initialRect.x, initialRect.y, initialRect.w, initialRect.h)
+	wndA.Show()
+	wm.Draw(screen)
+
+	wndA.Maximize()
+	wm.Draw(screen)
+
+	maximizedRect := NewRect(wndA.GetRect())
+	wmSize := NewRect(wm.GetInnerRect())
+	if maximizedRect != wmSize {
+		t.Fatalf("Expected wndA maximized rect to be %s, got %s", wmSize, maximizedRect)
+	}
+
+	wndA.Restore()
+	wm.Draw(screen)
+
+	restoredRect := NewRect(wndA.GetRect())
+	if restoredRect != initialRect {
+		t.Fatalf("Expected wndA restored rect to be the initial rect %s, got %s", initialRect, restoredRect)
+	}
+
 }

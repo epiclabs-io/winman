@@ -15,6 +15,7 @@ type Window interface {
 	IsMaximized() bool
 	GetResizable() bool
 	GetDraggable() bool
+	IsVisible() bool
 	HasBorder() bool
 }
 
@@ -30,7 +31,8 @@ type WindowBase struct {
 	maximized     bool
 	Draggable     bool
 	Resizable     bool
-	modal         bool
+	Modal         bool
+	Visible       bool
 }
 
 // NewWindow creates a new window in this window manager
@@ -53,11 +55,11 @@ func (w *WindowBase) GetRoot() tview.Primitive {
 }
 
 func (w *WindowBase) SetModal(modal bool) {
-	w.modal = modal
+	w.Modal = modal
 }
 
 func (w *WindowBase) GetModal() bool {
-	return w.modal
+	return w.Modal
 }
 
 func (w *WindowBase) HasBorder() bool {
@@ -70,6 +72,20 @@ func (w *WindowBase) GetDraggable() bool {
 
 func (w *WindowBase) GetResizable() bool {
 	return w.Resizable
+}
+
+func (w *WindowBase) IsVisible() bool {
+	return w.Visible
+}
+
+func (w *WindowBase) Show() *WindowBase {
+	w.Visible = true
+	return w
+}
+
+func (w *WindowBase) Hide() *WindowBase {
+	w.Visible = false
+	return w
 }
 
 func (w *WindowBase) Draw(screen tcell.Screen) {
@@ -115,7 +131,7 @@ func (w *WindowBase) IsMaximized() bool {
 }
 
 func (w *WindowBase) IsModal() bool {
-	return w.modal
+	return w.Modal
 }
 
 func (w *WindowBase) Restore() *WindowBase {
@@ -131,6 +147,7 @@ func (w *WindowBase) Focus(delegate func(p tview.Primitive)) {
 	} else {
 		w.Box.Focus(delegate)
 	}
+	w.Visible = true
 }
 
 // SetBorder sets the flag indicating whether or not the box should have a
@@ -143,6 +160,9 @@ func (w *WindowBase) SetBorder(show bool) *WindowBase {
 
 // HasFocus returns whether or not this primitive has focus.
 func (w *WindowBase) HasFocus() bool {
+	if !w.Visible {
+		return false
+	}
 	if w.root != nil {
 		return w.root.GetFocusable().HasFocus()
 	} else {
@@ -169,7 +189,7 @@ func (w *WindowBase) MouseHandler() func(action tview.MouseAction, event *tcell.
 		if w.root != nil {
 			return w.root.MouseHandler()(action, event, setFocus)
 		}
-		return false, nil
+		return w.Box.MouseHandler()(action, event, setFocus)
 	})
 }
 
