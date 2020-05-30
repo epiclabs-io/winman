@@ -37,45 +37,51 @@ type Window interface {
 // WindowBase defines a basic window
 type WindowBase struct {
 	*tview.Box
-	root        tview.Primitive // The item to be positioned. May be nil for an empty item.
-	buttons     []*Button
-	border      bool
-	restoreRect Rect
-	maximized   bool
-	Draggable   bool
-	Resizable   bool
-	Modal       bool
-	Visible     bool
+	root        tview.Primitive // The item contained in the window
+	buttons     []*Button       // window buttons on the title bar
+	border      bool            // whether to render a border
+	restoreRect Rect            // store previous coordinates after restoring from maximize
+	maximized   bool            // whether the window is maximized to the entire window manager area
+	Draggable   bool            //whether this window can be dragged around with the mouse
+	Resizable   bool            // whether this window is user-resizable
+	Modal       bool            // whether this window is modal
+	Visible     bool            // whether this window is rendered
 }
 
-// NewWindow creates a new window in this window manager
+// NewWindow creates a new window
 func NewWindow() *WindowBase {
 	window := &WindowBase{
-		Box: tview.NewBox(),
+		Box: tview.NewBox(), // initialize underlying box
 	}
 	window.restoreRect = NewRect(window.GetRect())
 	window.SetBorder(true)
 	return window
 }
 
+// SetRoot sets the main content of the window
 func (w *WindowBase) SetRoot(root tview.Primitive) *WindowBase {
 	w.root = root
 	return w
 }
 
+// GetRoot returns the primitive that represents the main content of the window
 func (w *WindowBase) GetRoot() tview.Primitive {
 	return w.root
 }
 
+// SetModal makes this window modal. A modal window captures all input
 func (w *WindowBase) SetModal(modal bool) *WindowBase {
 	w.Modal = modal
 	return w
 }
 
+// IsModal returns true if this window is modal
 func (w *WindowBase) IsModal() bool {
 	return w.Modal
 }
 
+// HasBorder returns true if this window has a border
+// windows without border cannot be resized or dragged by the user
 func (w *WindowBase) HasBorder() bool {
 	return w.border
 }
@@ -88,52 +94,63 @@ func (w *WindowBase) SetBorder(show bool) *WindowBase {
 	return w
 }
 
+// IsDraggable returns true if this window can be dragged by the user
 func (w *WindowBase) IsDraggable() bool {
 	return w.Draggable
 }
 
+// SetDraggable sets if this window can be dragged by the user
 func (w *WindowBase) SetDraggable(draggable bool) *WindowBase {
 	w.Draggable = draggable
 	return w
 }
 
+// IsResizable returns true if the user may resize this window
 func (w *WindowBase) IsResizable() bool {
 	return w.Resizable
 }
 
+// SetResizable sets if this window can be resized
 func (w *WindowBase) SetResizable(resizable bool) *WindowBase {
 	w.Resizable = resizable
 	return w
 }
 
+// IsVisible returns true if this window is rendered and may
+// get focus
 func (w *WindowBase) IsVisible() bool {
 	return w.Visible
 }
 
+// Show makes the window visible
 func (w *WindowBase) Show() *WindowBase {
 	w.Visible = true
 	return w
 }
 
+// Hide hides this window
 func (w *WindowBase) Hide() *WindowBase {
 	w.Visible = false
 	return w
 }
 
+// Draw draws this primitive on to the screen
 func (w *WindowBase) Draw(screen tcell.Screen) {
-	if w.HasFocus() {
+	if w.HasFocus() { // if the window has focus, make sure the underlying box shows a thicker border
 		w.Box.Focus(nil)
 	} else {
 		w.Box.Blur()
 	}
-	w.Box.Draw(screen)
+	w.Box.Draw(screen) // draw the window frame
 
+	// draw the underlying root primitive within the window bounds
 	if w.root != nil {
 		x, y, width, height := w.GetInnerRect()
 		w.root.SetRect(x, y, width, height)
 		w.root.Draw(NewClipRegion(screen, x, y, width, height))
 	}
 
+	// draw the window border
 	if w.border {
 		x, y, width, height := w.GetRect()
 		screen = NewClipRegion(screen, x, y, width, height)
@@ -146,22 +163,25 @@ func (w *WindowBase) Draw(screen tcell.Screen) {
 				buttonY += height
 			}
 
-			//screen.SetContent(buttonX, buttonY, button.Symbol, nil, tcell.StyleDefault.Foreground(tcell.ColorYellow))
+			// render the window title buttons
 			tview.Print(screen, tview.Escape(fmt.Sprintf("[%c]", button.Symbol)), buttonX-1, buttonY, 9, 0, tcell.ColorYellow)
 		}
 	}
 }
 
+// Maximize signals the window manager to resize this window to the maximum size available
 func (w *WindowBase) Maximize() *WindowBase {
 	w.restoreRect = NewRect(w.GetRect())
 	w.maximized = true
 	return w
 }
 
+// IsMaximized returns true if this window is maximized
 func (w *WindowBase) IsMaximized() bool {
 	return w.maximized
 }
 
+// Restore restores the window to the size it had before maximizing
 func (w *WindowBase) Restore() *WindowBase {
 	w.SetRect(w.restoreRect.Rect())
 	w.maximized = false
@@ -190,22 +210,27 @@ func (w *WindowBase) HasFocus() bool {
 	}
 }
 
+// MouseHandler returns a mouse handler for this primitive
 func (w *WindowBase) MouseHandler() func(action tview.MouseAction, event *tcell.EventMouse, setFocus func(p tview.Primitive)) (consumed bool, capture tview.Primitive) {
 	return w.WrapMouseHandler(func(action tview.MouseAction, event *tcell.EventMouse, setFocus func(p tview.Primitive)) (consumed bool, capture tview.Primitive) {
 		if action == tview.MouseLeftClick {
 			x, y := event.Position()
 			wx, wy, width, _ := w.GetRect()
-			if y == wy {
+
+			// check if any window button was pressed
+			// if the window does not have border, it cannot receive button events
+			if y == wy && w.border {
 				for _, button := range w.buttons {
 					if button.offsetX >= 0 && x == wx+button.offsetX || button.offsetX < 0 && x == wx+width+button.offsetX {
-						if button.ClickHandler != nil {
-							button.ClickHandler()
+						if button.OnClick != nil {
+							button.OnClick()
 						}
 						return true, nil
 					}
 				}
 			}
 		}
+		// pass on clicks to the root primitive, if any
 		if w.root != nil {
 			return w.root.MouseHandler()(action, event, setFocus)
 		}
@@ -213,6 +238,7 @@ func (w *WindowBase) MouseHandler() func(action tview.MouseAction, event *tcell.
 	})
 }
 
+// AddButton adds a new window button to the title bar
 func (w *WindowBase) AddButton(button *Button) *WindowBase {
 	w.buttons = append(w.buttons, button)
 
@@ -230,6 +256,7 @@ func (w *WindowBase) AddButton(button *Button) *WindowBase {
 	return w
 }
 
+// GetButton returns the given button
 func (w *WindowBase) GetButton(i int) *Button {
 	if i < 0 || i >= len(w.buttons) {
 		return nil
@@ -237,6 +264,7 @@ func (w *WindowBase) GetButton(i int) *Button {
 	return w.buttons[i]
 }
 
+// ButtonCount returns the number of buttons in the window title bar
 func (w *WindowBase) ButtonCount() int {
 	return len(w.buttons)
 }

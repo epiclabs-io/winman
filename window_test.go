@@ -163,7 +163,7 @@ func TestWindow(t *testing.T) {
 			for i := 0; i < wt.wnd.ButtonCount(); i++ {
 				func(i int) {
 					button := wt.wnd.GetButton(i)
-					button.ClickHandler = func() {
+					button.OnClick = func() {
 						clickedButton = i
 						clickCounter[i] = clickCounter[i] + 1
 					}
@@ -178,7 +178,6 @@ func TestWindow(t *testing.T) {
 			for x := 0; x < sw; x++ {
 				for y := 0; y < sh; y++ {
 					clickedButton = -1
-					//focusedPrimitive = nil
 					event := tcell.NewEventMouse(x, y, tcell.Button1, tcell.ModNone)
 					windowMouseHandler(tview.MouseLeftClick, event, setFocus)
 					if clickedButton != -1 {
@@ -201,6 +200,18 @@ func TestWindow(t *testing.T) {
 			_, _, width, height := priv.GetRect()
 			if priv.clickCount != width*height {
 				t.Fatalf("Expected root primitive to have received exactly %d clicks, got %d", width*height, priv.clickCount)
+			}
+
+			wt.wnd.SetBorder(false)
+			for x := 0; x < sw; x++ {
+				for y := 0; y < sh; y++ {
+					clickedButton = -1
+					event := tcell.NewEventMouse(x, y, tcell.Button1, tcell.ModNone)
+					windowMouseHandler(tview.MouseLeftClick, event, setFocus)
+					if clickedButton != -1 {
+						t.Fatalf("Expected no window button to be clicked, since border is turned off")
+					}
+				}
 			}
 
 		})

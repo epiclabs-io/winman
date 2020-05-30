@@ -108,16 +108,16 @@ func main() {
 		window.SetBorder(true).SetTitle(title).SetTitleAlign(tview.AlignCenter)
 		window.SetRect(2+counter*2, 2+counter, 50, 30)
 		window.AddButton(&winman.Button{
-			Symbol:       'X',
-			Alignment:    winman.ButtonLeft,
-			ClickHandler: quit,
+			Symbol:    'X',
+			Alignment: winman.ButtonLeft,
+			OnClick:   quit,
 		})
 
 		var maxMinButton *winman.Button
 		maxMinButton = &winman.Button{
 			Symbol:    '▴',
 			Alignment: winman.ButtonRight,
-			ClickHandler: func() {
+			OnClick: func() {
 				if window.IsMaximized() {
 					window.Restore()
 					maxMinButton.Symbol = '▴'

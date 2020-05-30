@@ -87,9 +87,9 @@ func Calculator() *winman.WindowBase {
 
 	wnd := winman.NewWindow().SetRoot(grid)
 	wnd.AddButton(&winman.Button{
-		Symbol:       'X',
-		Alignment:    winman.ButtonLeft,
-		ClickHandler: func() { wnd.Hide() },
+		Symbol:    'X',
+		Alignment: winman.ButtonLeft,
+		OnClick:   func() { wnd.Hide() },
 	})
 	wnd.SetRect(0, 0, 30, 15)
 	wnd.Draggable = true

@@ -8,9 +8,9 @@ const (
 )
 
 type Button struct {
-	Symbol       rune
-	offsetX      int
-	offsetY      int
-	Alignment    ButtonSide
-	ClickHandler func()
+	Symbol    rune
+	offsetX   int
+	offsetY   int
+	Alignment ButtonSide
+	OnClick   func()
 }
