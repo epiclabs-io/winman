@@ -1,7 +1,10 @@
 package winman
 
+// Stack represents a stack of unique items
 type Stack []interface{}
 
+// Push puts an element on the stack
+// if the item is already in the stack, this operation does nothing
 func (s *Stack) Push(newItem interface{}) {
 	if newItem == nil {
 		panic("cannot add nil item to stack")
@@ -14,6 +17,7 @@ func (s *Stack) Push(newItem interface{}) {
 	*s = append(*s, newItem)
 }
 
+// Pop pops the stack returning and removing the topmost element
 func (s *Stack) Pop() interface{} {
 	lenItems := len(*s)
 	if lenItems == 0 {
@@ -24,6 +28,8 @@ func (s *Stack) Pop() interface{} {
 	return item
 }
 
+// Remove removes the given item from the stack
+// if the item does not exist, this function does nothing
 func (s *Stack) Remove(item interface{}) {
 	i := s.IndexOf(item)
 	if i != -1 {
@@ -31,6 +37,8 @@ func (s *Stack) Remove(item interface{}) {
 	}
 }
 
+// Item returns the given item from the stack
+// returns nil if the index is out of bounds
 func (s Stack) Item(i int) interface{} {
 	if i < 0 || i >= len(s) {
 		return nil
@@ -38,6 +46,7 @@ func (s Stack) Item(i int) interface{} {
 	return s[i]
 }
 
+// IndexOf searches the stack for the given item and returns its index
 func (s Stack) IndexOf(searchItem interface{}) int {
 	for i, item := range s {
 		if item == searchItem {
@@ -47,6 +56,8 @@ func (s Stack) IndexOf(searchItem interface{}) int {
 	return -1
 }
 
+// Move finds an item in the stack and places it at the given index,
+// shifting items up or down to make space
 func (s *Stack) Move(item interface{}, targetIndex int) {
 	oldIndex := s.IndexOf(item)
 	if oldIndex == -1 {
@@ -75,6 +86,8 @@ func (s *Stack) Move(item interface{}, targetIndex int) {
 	*s = newStack
 }
 
+// Find searches the stack top down for an item that meets the custom
+// criteria specified by the passed function
 func (s Stack) Find(f func(item interface{}) bool) interface{} {
 	for i := len(s) - 1; i >= 0; i-- {
 		item := s[i]

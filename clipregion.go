@@ -2,6 +2,8 @@ package winman
 
 import "github.com/gdamore/tcell"
 
+// ClipRegion implements tcell.Screen and only allows setting content within
+// a defined region
 type ClipRegion struct {
 	tcell.Screen
 	x      int
@@ -11,6 +13,7 @@ type ClipRegion struct {
 	style  tcell.Style
 }
 
+// Creates a new clipped screen with the given rectangular coordinates
 func NewClipRegion(screen tcell.Screen, x, y, width, height int) *ClipRegion {
 	return &ClipRegion{
 		Screen: screen,
@@ -22,10 +25,12 @@ func NewClipRegion(screen tcell.Screen, x, y, width, height int) *ClipRegion {
 	}
 }
 
+// InRect returns true if the given coordinates are within this clipped region
 func (cr *ClipRegion) InRect(x, y int) bool {
 	return !(x < cr.x || y < cr.y || x >= cr.x+cr.width || y >= cr.y+cr.height)
 }
 
+// Fill implements tcell.Screen.Fill
 func (cr *ClipRegion) Fill(ch rune, style tcell.Style) {
 	for x := cr.x; x < cr.width; x++ {
 		for y := cr.y; y < cr.height; y++ {
@@ -72,6 +77,7 @@ func (cr *ClipRegion) ShowCursor(x int, y int) {
 	}
 }
 
+// Clear clears the clipped region
 func (cr *ClipRegion) Clear() {
 	cr.Fill(' ', cr.style)
 }

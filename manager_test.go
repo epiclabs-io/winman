@@ -9,6 +9,8 @@ import (
 	"github.com/rivo/tview"
 )
 
+// Focuser returns a setFocus function that remembers the primitive
+// that had focus before
 func Focuser(focusedPrimitive *tview.Primitive) func(tview.Primitive) {
 	var setFocus func(tview.Primitive)
 	setFocus = func(p tview.Primitive) {
