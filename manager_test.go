@@ -230,20 +230,7 @@ func TestWindowManagerSetZ(t *testing.T) {
 	verifyIndices()
 }
 
-type Rect struct {
-	x int
-	y int
-	w int
-	h int
-}
-
-func NewRect(x, y, w, h int) Rect {
-	return Rect{x, y, w, h}
-}
-
-func (r Rect) String() string {
-	return fmt.Sprintf("{(%d, %d) %dx%d}", r.x, r.y, r.w, r.h)
-}
+type Rect = winman.Rect
 
 type WMDrawTest struct {
 	initial   Rect // initial Rect
@@ -274,7 +261,7 @@ func TestWindowManagerDraw(t *testing.T) {
 	for _, wt := range WMDrawTests {
 		wnd := winman.NewWindow() // create a new window. Windows are not visible by default.
 		wm.AddWindow(wnd)         // add new window to wm.
-		wnd.SetRect(wt.initial.x, wt.initial.y, wt.initial.w, wt.initial.h)
+		wnd.SetRect(wt.initial.Rect())
 		if wt.maximized {
 			wnd.Maximize()
 		}
@@ -323,7 +310,7 @@ func TestWindowManagerDraw(t *testing.T) {
 	// since WMDrawTests are not visible, their Rects should be the original ones.
 	// Draw() must not adjust hidden windows.
 	for i, wnd := range windows {
-		rect := NewRect(wnd.GetRect())
+		rect := winman.NewRect(wnd.GetRect())
 		expectedRect := WMDrawTests[i].initial
 		if rect != expectedRect {
 			t.Fatalf("Expected window in test %d to have rect %s, got %s", i, expectedRect, rect)
@@ -338,7 +325,7 @@ func TestWindowManagerDraw(t *testing.T) {
 	// Now draw again and check if window rects were adjusted to fit:
 	wm.Draw(screen)
 	for i, wnd := range windows {
-		rect := NewRect(wnd.GetRect())
+		rect := winman.NewRect(wnd.GetRect())
 		expectedRect := WMDrawTests[i].expected
 		if rect != expectedRect {
 			t.Fatalf("Expected window in test %d to have rect %s, got %s", i, expectedRect, rect)
@@ -418,7 +405,7 @@ func TestWindowManagerMouse(t *testing.T) {
 
 	for id, tw := range testWindowRects {
 		wnd := wm.NewWindow()
-		wnd.SetRect(tw.initial.x, tw.initial.y, tw.initial.w, tw.initial.h)
+		wnd.SetRect(tw.initial.Rect())
 		if tw.visible {
 			wnd.Show()
 		}
@@ -465,7 +452,7 @@ func TestWindowManagerMouse(t *testing.T) {
 	}
 
 	for i, wnd := range windows {
-		finalRect := NewRect(wnd.GetRect())
+		finalRect := winman.NewRect(wnd.GetRect())
 		if finalRect != testWindowRects[i].final {
 			t.Fatalf("Expected window #%d to have a final rect of %s, got %s", i, testWindowRects[i].final, finalRect)
 		}
@@ -490,9 +477,9 @@ func TestCenter(t *testing.T) {
 
 	for i, tw := range testWindowRects {
 		wnd := wm.NewWindow()
-		wnd.SetRect(tw.initial.x, tw.initial.y, tw.initial.w, tw.initial.h)
+		wnd.SetRect(tw.initial.Rect())
 		wm.Center(wnd)
-		finalRect := NewRect(wnd.GetRect())
+		finalRect := winman.NewRect(wnd.GetRect())
 		if finalRect != tw.final {
 			t.Fatalf("Expected window #%d to have a final rect of %s, got %s", i, tw.final, finalRect)
 		}
@@ -508,18 +495,18 @@ func TestMaximizeRestore(t *testing.T) {
 	screen.SetSize(20, 20)
 	screen.Init()
 
-	initialRect := NewRect(1, 2, 5, 9)
+	initialRect := winman.NewRect(1, 2, 5, 9)
 
 	wndA := wm.NewWindow()
-	wndA.SetRect(initialRect.x, initialRect.y, initialRect.w, initialRect.h)
+	wndA.SetRect(initialRect.Rect())
 	wndA.Show()
 	wm.Draw(screen)
 
 	wndA.Maximize()
 	wm.Draw(screen)
 
-	maximizedRect := NewRect(wndA.GetRect())
-	wmSize := NewRect(wm.GetInnerRect())
+	maximizedRect := winman.NewRect(wndA.GetRect())
+	wmSize := winman.NewRect(wm.GetInnerRect())
 	if maximizedRect != wmSize {
 		t.Fatalf("Expected wndA maximized rect to be %s, got %s", wmSize, maximizedRect)
 	}
@@ -527,7 +514,7 @@ func TestMaximizeRestore(t *testing.T) {
 	wndA.Restore()
 	wm.Draw(screen)
 
-	restoredRect := NewRect(wndA.GetRect())
+	restoredRect := winman.NewRect(wndA.GetRect())
 	if restoredRect != initialRect {
 		t.Fatalf("Expected wndA restored rect to be the initial rect %s, got %s", initialRect, restoredRect)
 	}

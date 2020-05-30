@@ -29,8 +29,7 @@ var MinWindowHeight = 3
 // flexItem holds layout options for one item.
 
 func inRect(wnd Window, x, y int) bool {
-	rectX, rectY, width, height := wnd.GetRect()
-	return x >= rectX && x < rectX+width && y >= rectY && y < rectY+height
+	return NewRect(wnd.GetRect()).Contains(x, y)
 }
 
 type Manager struct {

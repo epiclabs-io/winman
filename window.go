@@ -7,31 +7,45 @@ import (
 	"github.com/rivo/tview"
 )
 
+// Window interface defines primitives that can be managed by the Window Manager
 type Window interface {
 	tview.Primitive
+	// IsModal defines this window as modal. When a window is modal, input cannot go to other windows
 	IsModal() bool
+
+	// HasFocus returns true when this window has the focus
 	HasFocus() bool
+
+	// IsMaximized returns true when the window is maximized and takes all the space available to the
+	// Window Manager
 	IsMaximized() bool
+
+	// IsResizable returns true when the window can be resized by the user
 	IsResizable() bool
+
+	// IsDraggable returns true when the window can be moved by the user by dragging
+	// the title bar
 	IsDraggable() bool
+
+	// IsVisible returns true when the window has to be drawn and can receive focus
 	IsVisible() bool
+
+	// HasBorder returns true if the window must have a border
 	HasBorder() bool
 }
 
+// WindowBase defines a basic window
 type WindowBase struct {
 	*tview.Box
-	root          tview.Primitive // The item to be positioned. May be nil for an empty item.
-	buttons       []*Button
-	border        bool
-	restoreX      int
-	restoreY      int
-	restoreWidth  int
-	restoreHeight int
-	maximized     bool
-	Draggable     bool
-	Resizable     bool
-	Modal         bool
-	Visible       bool
+	root        tview.Primitive // The item to be positioned. May be nil for an empty item.
+	buttons     []*Button
+	border      bool
+	restoreRect Rect
+	maximized   bool
+	Draggable   bool
+	Resizable   bool
+	Modal       bool
+	Visible     bool
 }
 
 // NewWindow creates a new window in this window manager
@@ -39,7 +53,7 @@ func NewWindow() *WindowBase {
 	window := &WindowBase{
 		Box: tview.NewBox(),
 	}
-	window.restoreX, window.restoreY, window.restoreHeight, window.restoreWidth = window.GetRect()
+	window.restoreRect = NewRect(window.GetRect())
 	window.SetBorder(true)
 	return window
 }
@@ -139,7 +153,7 @@ func (w *WindowBase) Draw(screen tcell.Screen) {
 }
 
 func (w *WindowBase) Maximize() *WindowBase {
-	w.restoreX, w.restoreY, w.restoreHeight, w.restoreWidth = w.GetRect()
+	w.restoreRect = NewRect(w.GetRect())
 	w.maximized = true
 	return w
 }
@@ -149,7 +163,7 @@ func (w *WindowBase) IsMaximized() bool {
 }
 
 func (w *WindowBase) Restore() *WindowBase {
-	w.SetRect(w.restoreX, w.restoreY, w.restoreHeight, w.restoreWidth)
+	w.SetRect(w.restoreRect.Rect())
 	w.maximized = false
 	return w
 }
