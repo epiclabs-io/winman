@@ -9,12 +9,11 @@ import (
 
 type Window interface {
 	tview.Primitive
-	SetModal(modal bool)
-	GetModal() bool
+	IsModal() bool
 	HasFocus() bool
 	IsMaximized() bool
-	GetResizable() bool
-	GetDraggable() bool
+	IsResizable() bool
+	IsDraggable() bool
 	IsVisible() bool
 	HasBorder() bool
 }
@@ -54,11 +53,12 @@ func (w *WindowBase) GetRoot() tview.Primitive {
 	return w.root
 }
 
-func (w *WindowBase) SetModal(modal bool) {
+func (w *WindowBase) SetModal(modal bool) *WindowBase {
 	w.Modal = modal
+	return w
 }
 
-func (w *WindowBase) GetModal() bool {
+func (w *WindowBase) IsModal() bool {
 	return w.Modal
 }
 
@@ -66,12 +66,30 @@ func (w *WindowBase) HasBorder() bool {
 	return w.border
 }
 
-func (w *WindowBase) GetDraggable() bool {
+// SetBorder sets the flag indicating whether or not the box should have a
+// border.
+func (w *WindowBase) SetBorder(show bool) *WindowBase {
+	w.border = show
+	w.Box.SetBorder(show)
+	return w
+}
+
+func (w *WindowBase) IsDraggable() bool {
 	return w.Draggable
 }
 
-func (w *WindowBase) GetResizable() bool {
+func (w *WindowBase) SetDraggable(draggable bool) *WindowBase {
+	w.Draggable = draggable
+	return w
+}
+
+func (w *WindowBase) IsResizable() bool {
 	return w.Resizable
+}
+
+func (w *WindowBase) SetResizable(resizable bool) *WindowBase {
+	w.Resizable = resizable
+	return w
 }
 
 func (w *WindowBase) IsVisible() bool {
@@ -130,10 +148,6 @@ func (w *WindowBase) IsMaximized() bool {
 	return w.maximized
 }
 
-func (w *WindowBase) IsModal() bool {
-	return w.Modal
-}
-
 func (w *WindowBase) Restore() *WindowBase {
 	w.SetRect(w.restoreX, w.restoreY, w.restoreHeight, w.restoreWidth)
 	w.maximized = false
@@ -148,14 +162,6 @@ func (w *WindowBase) Focus(delegate func(p tview.Primitive)) {
 		delegate(w.Box)
 	}
 	w.Visible = true
-}
-
-// SetBorder sets the flag indicating whether or not the box should have a
-// border.
-func (w *WindowBase) SetBorder(show bool) *WindowBase {
-	w.border = show
-	w.Box.SetBorder(show)
-	return w
 }
 
 // HasFocus returns whether or not this primitive has focus.

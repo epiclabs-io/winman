@@ -37,7 +37,7 @@ type Manager struct {
 	*tview.Box
 
 	// The windows to be positioned.
-	windows []Window
+	windows Stack
 
 	dragOffsetX, dragOffsetY int
 	draggedWindow            Window
@@ -61,24 +61,14 @@ func (wm *Manager) NewWindow() *WindowBase {
 func (wm *Manager) AddWindow(window Window) *Manager {
 	wm.Lock()
 	defer wm.Unlock()
-	for _, wnd := range wm.windows {
-		if wnd == window {
-			return wm
-		}
-	}
-	wm.windows = append(wm.windows, window)
+	wm.windows.Push(window)
 	return wm
 }
 
 func (wm *Manager) RemoveWindow(window Window) *Manager {
 	wm.Lock()
 	defer wm.Unlock()
-	for i, wnd := range wm.windows {
-		if wnd == window {
-			wm.windows = append(wm.windows[:i], wm.windows[i+1:]...)
-			break
-		}
-	}
+	wm.windows.Remove(window)
 	return wm
 }
 
@@ -100,19 +90,12 @@ func (wm *Manager) WindowCount() int {
 func (wm *Manager) Window(i int) Window {
 	wm.Lock()
 	defer wm.Unlock()
-	if i < 0 || i >= len(wm.windows) {
-		return nil
-	}
-	return wm.windows[i]
+	wnd, _ := wm.windows.Item(i).(Window)
+	return wnd
 }
 
 func (wm *Manager) getZ(window Window) int {
-	for i, wnd := range wm.windows {
-		if wnd == window {
-			return i
-		}
-	}
-	return -1
+	return wm.windows.IndexOf(window)
 }
 func (wm *Manager) GetZ(window Window) int {
 	wm.Lock()
@@ -121,31 +104,7 @@ func (wm *Manager) GetZ(window Window) int {
 }
 
 func (wm *Manager) setZ(window Window, newZ int) {
-	oldZ := wm.getZ(window)
-	lenW := len(wm.windows)
-	if oldZ == -1 {
-		return
-	}
-
-	if newZ < 0 || newZ >= lenW {
-		newZ = lenW - 1
-	}
-
-	newWindows := make([]Window, lenW)
-	for i, j := 0, 0; i < lenW; j++ {
-		if j == oldZ {
-			j++
-		}
-		if i == newZ {
-			j--
-		} else {
-			newWindows[i] = wm.windows[j]
-		}
-		i++
-	}
-
-	newWindows[newZ] = window
-	wm.windows = newWindows
+	wm.windows.Move(window, newZ)
 }
 
 func (wm *Manager) SetZ(window Window, newZ int) *Manager {
@@ -158,14 +117,15 @@ func (wm *Manager) SetZ(window Window, newZ int) *Manager {
 // Focus is called when this primitive receives focus.
 func (wm *Manager) Focus(delegate func(p tview.Primitive)) {
 	wm.Lock()
-	//find first visible window to pass the focus on to
-	for i := len(wm.windows) - 1; i >= 0; i-- {
-		window := wm.windows[i]
-		if window.IsVisible() {
-			wm.Unlock()
-			window.Focus(delegate)
-			return
-		}
+
+	window, _ := wm.windows.Find(func(wi interface{}) bool {
+		return wi.(Window).IsVisible()
+	}).(Window)
+
+	if window != nil {
+		wm.Unlock()
+		window.Focus(delegate)
+		return
 	}
 	wm.Unlock()
 }
@@ -176,12 +136,9 @@ func (wm *Manager) HasFocus() bool {
 	defer wm.Unlock()
 	// iterate over all windows. If any has focus, then the
 	// this window manager has focus.
-	for i := len(wm.windows) - 1; i >= 0; i-- {
-		if wm.windows[i].HasFocus() {
-			return true
-		}
-	}
-	return false
+	return nil != wm.windows.Find(func(wi interface{}) bool {
+		return wi.(Window).HasFocus()
+	})
 }
 
 // Draw draws this primitive onto the screen.
@@ -194,7 +151,7 @@ func (wm *Manager) Draw(screen tcell.Screen) {
 	// Ensure that the window with focus has the highest Z-index:
 	topWindowIndex := len(wm.windows) - 1
 	for i := topWindowIndex; i >= 0; i-- {
-		window := wm.windows[i]
+		window := wm.windows[i].(Window)
 		if window.IsVisible() && window.HasFocus() {
 			if i < topWindowIndex {
 				wm.setZ(window, WindowZTop) // move focused window on top
@@ -202,9 +159,11 @@ func (wm *Manager) Draw(screen tcell.Screen) {
 			break
 		}
 	}
+
 	// make sure windows are not out of bounds, too small,
 	// or too big to fit within the window manager:
-	for _, window := range wm.windows {
+	for _, wndItem := range wm.windows {
+		window := wndItem.(Window)
 		if !window.IsVisible() {
 			continue
 		}
@@ -278,10 +237,10 @@ func (wm *Manager) MouseHandler() func(action tview.MouseAction, event *tcell.Ev
 			case tview.MouseMove:
 				x, y := event.Position()
 				wx, wy, ww, wh := wm.draggedWindow.GetRect()
-				if wm.draggedEdge == EdgeTop && wm.draggedWindow.GetDraggable() {
+				if wm.draggedEdge == EdgeTop && wm.draggedWindow.IsDraggable() {
 					wm.draggedWindow.SetRect(x-wm.dragOffsetX, y-wm.dragOffsetY, ww, wh)
 				} else {
-					if wm.draggedWindow.GetResizable() {
+					if wm.draggedWindow.IsResizable() {
 						switch wm.draggedEdge {
 						case EdgeRight:
 							wm.draggedWindow.SetRect(wx, wy, x-wx+1, wh)
@@ -306,14 +265,14 @@ func (wm *Manager) MouseHandler() func(action tview.MouseAction, event *tcell.Ev
 		// that is hit by the mouse
 		// Stop if the last window was a modal.
 		for i := len(wm.windows) - 1; i >= 0 && !lastModal; i-- {
-			window := wm.windows[i]
+			window := wm.windows[i].(Window)
 			if !window.IsVisible() { // skip hidden windows
 				continue
 			}
 
 			// if this is a modal window, then don't give a chance for
 			// other windows to get mouse events
-			lastModal = window.GetModal() // if true, will exit loop on the next iteration
+			lastModal = window.IsModal() // if true, will exit loop on the next iteration
 
 			x, y := event.Position()
 			if !inRect(window, x, y) {

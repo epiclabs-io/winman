@@ -576,7 +576,7 @@ func TestModal(t *testing.T) {
 	// now mark window 4 as modal.
 	// only window 4 should get clicks
 	w4 := wm.Window(4)
-	w4.SetModal(true)
+	w4.(*winman.WindowBase).SetModal(true)
 	setFocus(w4)
 	wm.Draw(screen)
 

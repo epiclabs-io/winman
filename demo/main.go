@@ -9,123 +9,29 @@ import (
 	"github.com/rivo/tview"
 )
 
-func calculator(wm *winman.Manager) *winman.WindowBase {
-
-	value := []float64{0.0, 0.0}
-	i := 0
-	decimal := 1.0
-	op := ' '
-	display := tview.NewTextView().
-		SetText("0.").
-		SetTextAlign(tview.AlignRight)
-
-	keyPressed := func(char rune) {
-		if char >= '0' && char <= '9' {
-			digit := (float64)(char - '0')
-			if decimal == 1.0 {
-				value[i] = value[i]*10 + digit
-			} else {
-				value[i] = value[i] + digit*decimal
-				decimal /= 10
-			}
-		} else {
-			switch char {
-			case '.':
-				if decimal == 1.0 {
-					decimal = decimal / 10
-				}
-			case '=':
-				if i == 1 {
-					switch op {
-					case '+':
-						value[0] = value[0] + value[1]
-					case '-':
-						value[0] = value[0] - value[1]
-					case 'x':
-						value[0] = value[0] * value[1]
-					case '/':
-						if value[1] == 0.0 {
-							display.SetText("Err")
-							value[0] = 0.0
-						} else {
-							value[0] = value[0] / value[1]
-						}
-					}
-					i = 0
-					decimal = 1.0
-				} else {
-					value[0] = 0.0
-				}
-				op = ' '
-			default:
-				op = char
-				i = 1
-				decimal = 1.0
-				value[1] = 0
-			}
-		}
-		display.SetText(fmt.Sprintf("%g", value[i]))
-	}
-
-	newCalcButton := func(char rune) *tview.Button {
-		return tview.NewButton(string(char)).SetSelectedFunc(func() {
-			keyPressed(char)
-		})
-	}
-
-	grid := tview.NewGrid().
-		SetRows(2, 0, 0, 0, 0).
-		SetColumns(0, 0, 0, 0).
-		SetBorders(true).
-		AddItem(display, 0, 0, 1, 4, 2, 0, false)
-
-	buttons := []rune{'7', '8', '9', '/', '4', '5', '6', 'x', '1', '2', '3', '-', '0', '.', '=', '+'}
-
-	for i, b := range buttons {
-		row := 1 + i/4
-		col := i % 4
-		grid.AddItem(newCalcButton(b), row, col, 1, 1, 1, 1, true)
-	}
-
-	wnd := winman.NewWindow().SetRoot(grid)
-	wnd.AddButton(&winman.Button{
-		Symbol:       'X',
-		Alignment:    winman.ButtonLeft,
-		ClickHandler: func() { wm.RemoveWindow(wnd) },
-	})
-	wnd.SetRect(0, 0, 30, 15)
-	wnd.Draggable = true
-	wnd.Resizable = true
-
-	return wnd
-}
-
 func main() {
 
 	app := tview.NewApplication()
 	wm := winman.NewWindowManager()
 
-	modalWindowMessage := tview.NewTextView().SetText("\nChanges have been saved").SetTextAlign(tview.AlignCenter)
-	modalWindowContent := tview.NewFlex().
-		SetDirection(tview.FlexRow).
-		AddItem(modalWindowMessage, 0, 1, false)
-	modalWindow := winman.NewWindow().SetRoot(modalWindowContent)
-	modalWindowButton := tview.NewButton("OK").SetSelectedFunc(func() { modalWindow.Hide() })
-	modalWindowContent.AddItem(modalWindowButton, 1, 0, true)
-	modalWindow.SetTitle("Confirmation")
-	modalWindow.SetRect(4, 2, 30, 6)
-	modalWindow.Draggable = true
-	modalWindow.Modal = true
-	wm.AddWindow(modalWindow)
+	quitMsgBox := MsgBox("Confirmation", "Really quit?", []string{"Yes", "No"}, func(clicked string) {
+		if clicked == "Yes" {
+			app.Stop()
+		}
+	})
+	wm.AddWindow(quitMsgBox)
 
-	var createForm func(modal bool) *winman.WindowBase
-	var counter = 0
+	calculator := Calculator()
+	wm.AddWindow(calculator)
 
 	setFocus := func(p tview.Primitive) {
 		go app.QueueUpdateDraw(func() {
 			app.SetFocus(p)
 		})
 	}
+
+	var createForm func(modal bool) *winman.WindowBase
+	var counter = 0
 
 	setZ := func(wnd *winman.WindowBase, newZ int) {
 		go app.QueueUpdateDraw(func() {
@@ -140,22 +46,34 @@ func main() {
 	createForm = func(modal bool) *winman.WindowBase {
 		counter++
 		form := tview.NewForm()
-		window := winman.NewWindow().SetRoot(form)
-		window.Draggable = true
-		window.Resizable = true
-		window.Modal = modal
+		window := winman.NewWindow().
+			SetRoot(form).
+			SetResizable(true).
+			SetDraggable(true).
+			SetModal(modal)
+
+		quit := func() {
+			if wm.WindowCount() == 3 {
+				quitMsgBox.Show()
+				wm.Center(quitMsgBox)
+				setFocus(quitMsgBox)
+			} else {
+				wm.RemoveWindow(window)
+				setFocus(wm)
+			}
+		}
 
 		form.AddDropDown("Title", []string{"Mr.", "Ms.", "Mrs.", "Dr.", "Prof."}, 0, nil).
 			AddInputField("First name", "", 20, nil, nil).
 			AddPasswordField("Password", "", 10, '*', nil).
-			AddCheckbox("Draggable", window.Draggable, func(checked bool) {
-				window.Draggable = checked
+			AddCheckbox("Draggable", window.IsDraggable(), func(checked bool) {
+				window.SetDraggable(checked)
 			}).
-			AddCheckbox("Resizable", window.Draggable, func(checked bool) {
-				window.Resizable = checked
+			AddCheckbox("Resizable", window.IsResizable(), func(checked bool) {
+				window.SetResizable(checked)
 			}).
 			AddCheckbox("Modal", window.Modal, func(checked bool) {
-				window.Modal = checked
+				window.SetModal(checked)
 			}).
 			AddCheckbox("Border", window.Draggable, func(checked bool) {
 				window.SetBorder(checked)
@@ -179,31 +97,22 @@ func main() {
 				wm.AddWindow(newWnd)
 				setFocus(newWnd)
 			}).
-			AddButton("Save", func() {
-				wm.Center(modalWindow)
-				modalWindow.Show()
-				setFocus(modalWindow)
-			}).
 			AddButton("Calc", func() {
-				calc := calculator(wm).Show()
-				wm.AddWindow(calc).Center(calc)
-				setFocus(calc)
+				calculator.Show()
+				wm.Center(calculator)
+				setFocus(calculator)
 			}).
-			AddButton("Quit", func() {
-				app.Stop()
-			})
+			AddButton("Quit", quit)
 
 		title := fmt.Sprintf("Window%d", counter)
 		window.SetBorder(true).SetTitle(title).SetTitleAlign(tview.AlignCenter)
 		window.SetRect(2+counter*2, 2+counter, 50, 30)
 		window.AddButton(&winman.Button{
-			Symbol:    'X',
-			Alignment: winman.ButtonLeft,
-			ClickHandler: func() {
-				wm.RemoveWindow(window)
-				setFocus(wm)
-			},
+			Symbol:       'X',
+			Alignment:    winman.ButtonLeft,
+			ClickHandler: quit,
 		})
+
 		var maxMinButton *winman.Button
 		maxMinButton = &winman.Button{
 			Symbol:    '▴',
