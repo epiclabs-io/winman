@@ -56,7 +56,7 @@ func (cr *ClipRegion) SetCell(x int, y int, style tcell.Style, ch ...rune) {
 // that follows is a possible list of combining characters to append,
 // and will usually be nil (no combining characters.)
 //
-// The results are not displayd until Show() or Sync() is called.
+// The results are not displayed until Show() or Sync() is called.
 //
 // Note that wide (East Asian full width) runes occupy two cells,
 // and attempts to place character at next cell to the right will have

@@ -5,6 +5,7 @@ import (
 	"github.com/rivo/tview"
 )
 
+// MsgBox creates a new modal message box
 func MsgBox(title, text string, buttons []string, callback func(clicked string)) *winman.WindowBase {
 
 	msgBox := winman.NewWindow()

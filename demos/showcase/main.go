@@ -21,8 +21,8 @@ func main() {
 	})
 	wm.AddWindow(quitMsgBox)
 
-	calculator := Calculator()
-	wm.AddWindow(calculator)
+	calc := calculator()
+	wm.AddWindow(calc)
 
 	setFocus := func(p tview.Primitive) {
 		go app.QueueUpdateDraw(func() {
@@ -98,9 +98,9 @@ func main() {
 				setFocus(newWnd)
 			}).
 			AddButton("Calc", func() {
-				calculator.Show()
-				wm.Center(calculator)
-				setFocus(calculator)
+				calc.Show()
+				wm.Center(calc)
+				setFocus(calc)
 			}).
 			AddButton("Close", quit)
 

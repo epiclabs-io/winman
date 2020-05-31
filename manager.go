@@ -85,9 +85,9 @@ func (wm *Manager) RemoveWindow(window Window) *Manager {
 // Center centers the given window relative to the window manager
 func (wm *Manager) Center(window Window) *Manager {
 	mx, my, mw, mh := wm.GetInnerRect()
-	x, y, width, height := window.GetRect()
-	x = mx + (mw-width)/2
-	y = my + (mh-height)/2
+	_, _, width, height := window.GetRect()
+	x := mx + (mw-width)/2
+	y := my + (mh-height)/2
 	window.SetRect(x, y, width, height)
 	return wm
 }

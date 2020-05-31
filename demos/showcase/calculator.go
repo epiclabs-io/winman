@@ -7,7 +7,7 @@ import (
 	"github.com/rivo/tview"
 )
 
-func Calculator() *winman.WindowBase {
+func calculator() *winman.WindowBase {
 
 	value := []float64{0.0, 0.0}
 	i := 0
