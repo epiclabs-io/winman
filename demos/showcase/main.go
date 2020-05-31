@@ -102,7 +102,7 @@ func main() {
 				wm.Center(calculator)
 				setFocus(calculator)
 			}).
-			AddButton("Quit", quit)
+			AddButton("Close", quit)
 
 		title := fmt.Sprintf("Window%d", counter)
 		window.SetBorder(true).SetTitle(title).SetTitleAlign(tview.AlignCenter)
