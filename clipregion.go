@@ -13,7 +13,7 @@ type ClipRegion struct {
 	style  tcell.Style
 }
 
-// Creates a new clipped screen with the given rectangular coordinates
+// NewClipRegion Creates a new clipped screen with the given rectangular coordinates
 func NewClipRegion(screen tcell.Screen, x, y, width, height int) *ClipRegion {
 	return &ClipRegion{
 		Screen: screen,

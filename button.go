@@ -4,10 +4,13 @@ package winman
 type ButtonSide int16
 
 const (
-	ButtonLeft  = iota // the button will be drawn on the left
-	ButtonRight        // the button will be drawn on the right
+	// ButtonLeft will set the button to be drawn on the left
+	ButtonLeft = iota
+	// ButtonRight will set the button to be drawn on the right
+	ButtonRight
 )
 
+// Button represents a button on the window title bar
 type Button struct {
 	Symbol    rune // icon for the button
 	offsetX   int  // where the button is drawn

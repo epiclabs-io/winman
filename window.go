@@ -205,9 +205,8 @@ func (w *WindowBase) HasFocus() bool {
 	}
 	if w.root != nil {
 		return w.root.GetFocusable().HasFocus()
-	} else {
-		return w.Box.HasFocus()
 	}
+	return w.Box.HasFocus()
 }
 
 // MouseHandler returns a mouse handler for this primitive
