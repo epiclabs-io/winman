@@ -116,6 +116,12 @@ func (w *WindowBase) SetResizable(resizable bool) *WindowBase {
 	return w
 }
 
+// SetTitle sets the window title
+func (w *WindowBase) SetTitle(text string) *WindowBase {
+	w.Box.SetTitle(text)
+	return w
+}
+
 // IsVisible returns true if this window is rendered and may
 // get focus
 func (w *WindowBase) IsVisible() bool {

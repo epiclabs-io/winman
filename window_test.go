@@ -259,16 +259,46 @@ func TestFocusDelegation(t *testing.T) {
 }
 
 func TestWindowSettings(t *testing.T) {
-	wndA := winman.NewWindow()
+	wnd := winman.NewWindow()
 
-	if wndA.IsModal() {
+	if wnd.IsModal() {
 		t.Fatal("Expected window to be non-modal by default")
 	}
 
-	wndA.SetModal(true)
+	wnd.SetModal(true)
 
-	if !wndA.IsModal() {
+	if !wnd.IsModal() {
 		t.Fatal("Expected window to be modal after setting modal to true")
+	}
+
+	if wnd.IsResizable() {
+		t.Fatal("Expected window to be non-resizable by default")
+	}
+
+	wnd.SetResizable(true)
+
+	if !wnd.IsResizable() {
+		t.Fatal("Expected window to be resizable after setting resizable to true")
+	}
+
+	if wnd.IsDraggable() {
+		t.Fatal("Expected window to be non-draggable by default")
+	}
+
+	wnd.SetDraggable(true)
+
+	if !wnd.IsDraggable() {
+		t.Fatal("Expected window to be draggable after setting draggable to true")
+	}
+
+	if wnd.GetTitle() != "" {
+		t.Fatal("Expected window to not have a title by default")
+	}
+
+	wnd.SetTitle("Hello")
+
+	if wnd.GetTitle() != "Hello" {
+		t.Fatalf("Expected window to have the expecte title, got %s", wnd.GetTitle())
 	}
 
 }
