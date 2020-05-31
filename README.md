@@ -1,6 +1,9 @@
-# Winman - Window Manager for tview terminal UIs
+# Winman - go Window Manager for terminal UIs
+[![Build Status](https://travis-ci.org/epiclabs-io/winman.svg?branch=master)](https://travis-ci.org/epiclabs-io/winman)
+[![Go Report](https://goreportcard.com/badge/github.com/epiclabs-io/winman)](https://goreportcard.com/report/github.com/epiclabs-io/winman)
+[![Godoc Reference](https://godoc.org/github.com/epiclabs-io/winman?status.svg)](https://pkg.go.dev/github.com/epiclabs-io/winman)
 
-Winman is a basic yet powerful window manager in go for terminal-based user interfaces that plugs into tview (github.com/rivo/tview).
+Winman is a basic yet powerful window manager in go for terminal-based user interfaces that plugs into [tview](github.com/rivo/tview).
 
 ![Screenshot](demos/showcase/showcase.gif)
 
@@ -10,7 +13,7 @@ It supports floating windows that can be dragged, resized and maximized. Windows
 Windows can also be modal, meaning that other windows don't receive input while
 a modal window is on top. You can control whether the user can drag or resize windows around the screen.
 
-Windows can overlap each other by setting their Z-index. Any `tview.Primitive` can be added to a window, thus you can combine with any other existing `tview` widget!
+Windows can overlap each other by setting their Z-index. Any `tview.Primitive` can be added to a window, thus you can combine with any other existing `tview` widget! Check [tview](github.com/rivo/tview) for a complete list of available widgets you can use.
 
 ## Installation
 
@@ -66,7 +69,7 @@ The `demos` directory contains a showcase demonstrating the different aspects of
 
 ## Dependencies
 
-This package is based on github.com/rivo/tview (and its dependencies)
+This package works with [tview](github.com/rivo/tview) and its dependencies.
 
 ## Your Feedback
 
