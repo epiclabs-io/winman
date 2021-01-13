@@ -3,7 +3,7 @@ package winman
 import (
 	"fmt"
 
-	"github.com/gdamore/tcell"
+	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
 )
 
@@ -12,9 +12,6 @@ type Window interface {
 	tview.Primitive
 	// IsModal defines this window as modal. When a window is modal, input cannot go to other windows
 	IsModal() bool
-
-	// HasFocus returns true when this window has the focus
-	HasFocus() bool
 
 	// IsMaximized returns true when the window is maximized and takes all the space available to the
 	// Window Manager
@@ -210,7 +207,7 @@ func (w *WindowBase) HasFocus() bool {
 		return false
 	}
 	if w.root != nil {
-		return w.root.GetFocusable().HasFocus()
+		return w.root.HasFocus()
 	}
 	return w.Box.HasFocus()
 }
