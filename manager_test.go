@@ -461,6 +461,74 @@ func TestWindowManagerMouse(t *testing.T) {
 	}
 }
 
+type KeyTestPrimitive struct {
+	tview.Box
+}
+
+var lastPrimitive *KeyTestPrimitive
+
+func (ktp *KeyTestPrimitive) InputHandler() func(event *tcell.EventKey, setFocus func(p tview.Primitive)) {
+	return func(event *tcell.EventKey, setFocus func(p tview.Primitive)) {
+		lastPrimitive = ktp
+	}
+}
+
+func TestWindowManagerKeyboard(t *testing.T) {
+	wm := winman.NewWindowManager()
+	wm.SetRect(0, 0, 20, 20)
+	var windows []*winman.WindowBase
+	// add a few windows
+	// windows start all hidden
+	for i := 0; i < 5; i++ {
+		window := wm.NewWindow()
+		window.SetRect(0, 0, 20, 20)
+		root := &KeyTestPrimitive{}
+		window.SetRoot(root)
+		windows = append(windows, window)
+	}
+
+	inputHandler := wm.InputHandler()
+	if inputHandler == nil {
+		t.Fatal("Window manager must return an input handler")
+	}
+
+	testEventKey := tcell.NewEventKey(tcell.KeyF1, 'a', tcell.ModCtrl)
+	testSetFocus := func(tview.Primitive) {}
+
+	// send first keypress. All windows are hidden, so no primitive should get the key
+	inputHandler(testEventKey, testSetFocus)
+
+	if lastPrimitive != nil {
+		t.Fatal("No primitive should have got the key press since all windows are hidden")
+	}
+
+	// Show window #3. It should get the next keypress.
+	wnd3 := windows[3]
+	wnd3.Show()
+	wnd3.GetRoot().Focus(nil)
+	inputHandler(testEventKey, testSetFocus)
+	if lastPrimitive != wnd3.GetRoot() {
+		t.Fatal("Expected last keypress to have gone to window3's root")
+	}
+
+	// Show Window #4, which has a higher Z than #3, should now get the keypress
+	wnd4 := windows[4]
+	wnd4.Show()
+	wnd4.GetRoot().Focus(nil)
+	inputHandler(testEventKey, testSetFocus)
+	if lastPrimitive != wnd4.GetRoot() {
+		t.Fatal("Expected last keypress to have gone to window4's root")
+	}
+
+	// Change #3's Z to be highest, so it should get the keypress
+	wm.SetZ(wnd3, winman.WindowZTop)
+	inputHandler(testEventKey, testSetFocus)
+	if lastPrimitive != wnd3.GetRoot() {
+		t.Fatal("Expected last keypress to have gone to window3's root")
+	}
+
+}
+
 type TestCenterWindow struct {
 	initial Rect
 	final   Rect

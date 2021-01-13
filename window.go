@@ -240,6 +240,14 @@ func (w *WindowBase) MouseHandler() func(action tview.MouseAction, event *tcell.
 	})
 }
 
+// InputHandler returns a handler which receives key events when it has focus.
+func (w *WindowBase) InputHandler() func(event *tcell.EventKey, setFocus func(p tview.Primitive)) {
+	if w.root != nil {
+		return w.root.InputHandler()
+	}
+	return nil
+}
+
 // AddButton adds a new window button to the title bar
 func (w *WindowBase) AddButton(button *Button) *WindowBase {
 	w.buttons = append(w.buttons, button)

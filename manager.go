@@ -349,3 +349,26 @@ func (wm *Manager) MouseHandler() func(action tview.MouseAction, event *tcell.Ev
 		return
 	})
 }
+
+// InputHandler returns a handler which receives key events when it has focus.
+func (wm *Manager) InputHandler() func(event *tcell.EventKey, setFocus func(p tview.Primitive)) {
+	return wm.WrapInputHandler(func(event *tcell.EventKey, setFocus func(p tview.Primitive)) {
+		wm.Lock()
+		// Pass key events along to the window with highest Z that is visible and has focus
+		var window Window
+		for i := len(wm.windows) - 1; i >= 0; i-- {
+			window = wm.windows[i].(Window)
+			if window.HasFocus() {
+				break
+			}
+			window = nil
+		}
+		wm.Unlock()
+		if window != nil {
+			inputHandler := window.InputHandler()
+			if inputHandler != nil {
+				inputHandler(event, setFocus)
+			}
+		}
+	})
+}
